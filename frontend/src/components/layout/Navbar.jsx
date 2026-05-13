@@ -44,12 +44,12 @@ export default function Navbar() {
               </Link>
 
               <Link
-                to="/letters/new"
-                className="hidden items-center gap-2 rounded-full bg-burgundy px-4 py-2 text-sm font-semibold text-white shadow-soft hover:opacity-90 sm:flex"
-              >
-                <PenLine size={16} />
-                New letter
-              </Link>
+  to="/dashboard"
+  className="hidden items-center gap-2 rounded-full bg-burgundy px-4 py-2 text-sm font-semibold text-white shadow-soft hover:opacity-90 sm:flex"
+>
+  <PenLine size={16} />
+  My gardens
+</Link>
 
               <button
                 onClick={handleLogout}

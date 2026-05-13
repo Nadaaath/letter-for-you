@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, KeyRound, Loader2, LockKeyhole } from "lucide-react";
 
-import { unlockLetter } from "../services/lettersApi";
+import { unlockVault } from "../services/lettersApi";
 import { saveOpenedLetter } from "../../../lib/storage";
 
 export default function UnlockLetterForm() {
@@ -24,7 +24,7 @@ export default function UnlockLetterForm() {
     try {
       setLoading(true);
 
-      const letter = await unlockLetter(code);
+      const letter = await unlockVault(code);
 
       saveOpenedLetter(letter);
       navigate("/letter/opened");

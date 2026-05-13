@@ -10,6 +10,7 @@ import DashboardPage from "../features/letters/pages/DashboardPage";
 import LetterEditorPage from "../features/letters/pages/LetterEditorPage";
 import UnlockLetterPage from "../features/letters/pages/UnlockLetterPage";
 import LetterViewPage from "../features/letters/pages/LetterViewPage";
+import VaultDetailPage from "../features/letters/pages/VaultDetailPage";
 
 export default function AppRouter() {
   return (
@@ -31,7 +32,16 @@ export default function AppRouter() {
       />
 
       <Route
-        path="/letters/new"
+        path="/vaults/:vaultId"
+        element={
+          <ProtectedRoute>
+            <VaultDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/vaults/:vaultId/letters/new"
         element={
           <ProtectedRoute>
             <LetterEditorPage />

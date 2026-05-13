@@ -1,30 +1,55 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Save, Sparkles } from "lucide-react";
 
-import { createLetter, generateLetterCode } from "../services/lettersApi";
+import { addLetterToVault } from "../services/lettersApi";
 import { letterFonts } from "../data/letterThemes";
 import LetterPreview from "../components/LetterPreview";
 import ThemeSelector from "../components/ThemeSelector";
-import CodeGeneratedBox from "../components/CodeGeneratedBox";
 
 const initialLetter = {
   title: "",
+  recipientName: "",
+  senderName: "",
+  isAnonymous: false,
   content: "",
-  fontFamily: "Playfair Display",
-  textColor: "#7f1d1d",
-  backgroundColor: "#fff7ed",
-  theme: "rose",
-  decoration: "flowers",
+
+  styleConfig: {
+    envelope: {
+      style: "classic-cream",
+      color: "#e7d7bb",
+      seal: "none",
+    },
+    paper: {
+      style: "soft-paper",
+      backgroundColor: "#fff7ed",
+      borderStyle: "soft",
+    },
+    typography: {
+      titleFont: "Playfair Display",
+      bodyFont: "Playfair Display",
+      accentFont: "Dancing Script",
+      textColor: "#7f1d1d",
+    },
+    theme: {
+      id: "rose",
+    },
+    decorations: {
+      flowers: ["rose"],
+      icons: ["heart"],
+      accent: "flowers",
+    },
+  },
+
   isOpenOnce: false,
 };
 
 export default function LetterEditorPage() {
   const navigate = useNavigate();
+  const { vaultId } = useParams();
 
   const [formData, setFormData] = useState(initialLetter);
   const [saving, setSaving] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState("");
   const [error, setError] = useState("");
 
   function handleChange(event) {
@@ -36,28 +61,58 @@ export default function LetterEditorPage() {
     });
   }
 
+  function updateStyleConfig(section, key, value) {
+    setFormData({
+      ...formData,
+      styleConfig: {
+        ...formData.styleConfig,
+        [section]: {
+          ...formData.styleConfig[section],
+          [key]: value,
+        },
+      },
+    });
+  }
+
   function applyTheme(theme) {
     setFormData({
       ...formData,
-      theme: theme.id,
-      backgroundColor: theme.backgroundColor,
-      textColor: theme.textColor,
-      decoration: theme.decoration,
+      styleConfig: {
+        ...formData.styleConfig,
+        theme: {
+          id: theme.id,
+        },
+        paper: {
+          ...formData.styleConfig.paper,
+          backgroundColor: theme.backgroundColor,
+        },
+        typography: {
+          ...formData.styleConfig.typography,
+          textColor: theme.textColor,
+        },
+        decorations: {
+          ...formData.styleConfig.decorations,
+          accent: theme.decoration,
+        },
+      },
     });
   }
 
   async function handleSave(event) {
     event.preventDefault();
     setError("");
-    setGeneratedCode("");
+
+    if (!vaultId) {
+      setError("No private garden selected.");
+      return;
+    }
 
     try {
       setSaving(true);
 
-      const createdLetter = await createLetter(formData);
-      const codeResponse = await generateLetterCode(createdLetter.id);
+      await addLetterToVault(vaultId, formData);
 
-      setGeneratedCode(codeResponse.accessCode);
+      navigate(`/vaults/${vaultId}`);
     } catch (err) {
       setError(err.response?.data?.message || "Could not save letter");
     } finally {
@@ -68,11 +123,11 @@ export default function LetterEditorPage() {
   return (
     <section className="mx-auto max-w-7xl px-5 py-8">
       <button
-        onClick={() => navigate("/dashboard")}
+        onClick={() => navigate(`/vaults/${vaultId}`)}
         className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-sm font-semibold text-burgundy shadow-sm hover:bg-rose-50"
       >
         <ArrowLeft size={16} />
-        Back to my written letters
+        Back to private garden
       </button>
 
       <div className="mb-8">
@@ -86,8 +141,8 @@ export default function LetterEditorPage() {
         </h1>
 
         <p className="mt-3 max-w-2xl text-rose-950/70">
-          Create a private letter, style it softly, and receive a secret code to
-          share with someone special.
+          Add this letter to the selected private garden. The garden can contain
+          multiple letters and be opened with one shared access code.
         </p>
       </div>
 
@@ -103,9 +158,47 @@ export default function LetterEditorPage() {
             </div>
           )}
 
-          {generatedCode && <div className="mt-5"><CodeGeneratedBox code={generatedCode} /></div>}
-
           <div className="mt-6 space-y-5">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-burgundy">
+                To
+              </label>
+              <input
+                name="recipientName"
+                value={formData.recipientName}
+                onChange={handleChange}
+                placeholder="Who is this letter for?"
+                maxLength={25}
+                className="w-full rounded-2xl border border-rose-100 bg-white/80 px-4 py-3 outline-none focus:border-burgundy"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-burgundy">
+                From
+              </label>
+              <input
+                name="senderName"
+                value={formData.senderName}
+                onChange={handleChange}
+                placeholder="Leave blank to post anonymously"
+                maxLength={25}
+                disabled={formData.isAnonymous}
+                className="w-full rounded-2xl border border-rose-100 bg-white/80 px-4 py-3 outline-none focus:border-burgundy disabled:opacity-60"
+              />
+            </div>
+
+            <label className="flex items-center gap-3 rounded-2xl border border-rose-100 bg-white/70 p-4 text-sm font-semibold text-burgundy">
+              <input
+                name="isAnonymous"
+                type="checkbox"
+                checked={formData.isAnonymous}
+                onChange={handleChange}
+                className="h-4 w-4"
+              />
+              Post this letter anonymously
+            </label>
+
             <div>
               <label className="mb-2 block text-sm font-semibold text-burgundy">
                 Title
@@ -121,7 +214,7 @@ export default function LetterEditorPage() {
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-burgundy">
-                Letter
+                Your message
               </label>
               <textarea
                 name="content"
@@ -135,12 +228,13 @@ export default function LetterEditorPage() {
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-burgundy">
-                Font
+                Handwriting / font
               </label>
               <select
-                name="fontFamily"
-                value={formData.fontFamily}
-                onChange={handleChange}
+                value={formData.styleConfig.typography.bodyFont}
+                onChange={(event) =>
+                  updateStyleConfig("typography", "bodyFont", event.target.value)
+                }
                 className="w-full rounded-2xl border border-rose-100 bg-white/80 px-4 py-3 outline-none focus:border-burgundy"
               >
                 {letterFonts.map((font) => (
@@ -157,23 +251,33 @@ export default function LetterEditorPage() {
                   Text color
                 </label>
                 <input
-                  name="textColor"
                   type="color"
-                  value={formData.textColor}
-                  onChange={handleChange}
+                  value={formData.styleConfig.typography.textColor}
+                  onChange={(event) =>
+                    updateStyleConfig(
+                      "typography",
+                      "textColor",
+                      event.target.value
+                    )
+                  }
                   className="h-12 w-full rounded-2xl border border-rose-100 bg-white/80 p-2"
                 />
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-burgundy">
-                  Background
+                  Paper color
                 </label>
                 <input
-                  name="backgroundColor"
                   type="color"
-                  value={formData.backgroundColor}
-                  onChange={handleChange}
+                  value={formData.styleConfig.paper.backgroundColor}
+                  onChange={(event) =>
+                    updateStyleConfig(
+                      "paper",
+                      "backgroundColor",
+                      event.target.value
+                    )
+                  }
                   className="h-12 w-full rounded-2xl border border-rose-100 bg-white/80 p-2"
                 />
               </div>
@@ -203,7 +307,7 @@ export default function LetterEditorPage() {
               ) : (
                 <>
                   <Save size={18} />
-                  Save and generate code
+                  Save letter to garden
                 </>
               )}
             </button>
@@ -212,7 +316,7 @@ export default function LetterEditorPage() {
 
         <div className="space-y-6">
           <ThemeSelector
-            selectedThemeId={formData.theme}
+            selectedThemeId={formData.styleConfig.theme.id}
             onSelectTheme={applyTheme}
           />
 
