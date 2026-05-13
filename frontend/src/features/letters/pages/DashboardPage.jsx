@@ -91,22 +91,31 @@ export default function DashboardPage() {
           </p>
 
           <h1 className="font-serif text-5xl font-bold text-burgundy">
-            Your letter vault
+            Letters you wrote
           </h1>
 
           <p className="mt-3 max-w-2xl text-rose-950/70">
-            Keep your private letters organized, generate secret codes, and
-            share only what you choose.
+            Manage the private letters you created. To open a letter someone sent you,
+use its secret access code.
           </p>
         </div>
 
-        <Link
-          to="/letters/new"
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-burgundy px-6 py-3 font-semibold text-white shadow-soft hover:opacity-90"
-        >
-          <PenLine size={18} />
-          Write new letter
-        </Link>
+        <div className="flex flex-wrap gap-3">
+  <Link
+    to="/unlock"
+    className="inline-flex items-center justify-center rounded-full border border-rose-200 bg-white/70 px-6 py-3 font-semibold text-burgundy hover:bg-rose-50"
+  >
+    Open a letter with a code
+  </Link>
+
+  <Link
+    to="/letters/new"
+    className="inline-flex items-center justify-center gap-2 rounded-full bg-burgundy px-6 py-3 font-semibold text-white shadow-soft hover:opacity-90"
+  >
+    <PenLine size={18} />
+    Write new letter
+  </Link>
+</div>
       </div>
 
       {error && (
