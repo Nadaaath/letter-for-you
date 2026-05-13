@@ -8,6 +8,7 @@ import { env } from "./config/env.js";
 import { prisma } from "./config/prisma.js";
 import { errorMiddleware } from "./middleware/error.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
+import letterRoutes from "./routes/letter.routes.js";
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.get("/health/db", async (req, res, next) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/letters", letterRoutes);
 
 app.use(errorMiddleware);
 
