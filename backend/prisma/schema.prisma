@@ -13,7 +13,7 @@ model User {
   email        String   @unique
   passwordHash String
 
-  letters      Letter[]
+  vaults       Vault[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -21,29 +21,45 @@ model User {
   @@map("users")
 }
 
+model Vault {
+  id             String   @id @default(uuid())
+  name           String
+  description    String?
+
+  accessCodeHash String?
+  hasAccessCode  Boolean  @default(false)
+
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  letters        Letter[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("vaults")
+}
+
 model Letter {
-  id              String    @id @default(uuid())
-  title           String
-  content         String
+  id            String    @id @default(uuid())
 
-  fontFamily      String    @default("Playfair Display")
-  textColor       String    @default("#7f1d1d")
-  backgroundColor String    @default("#fff7ed")
-  theme           String    @default("rose")
-  decoration      String    @default("flowers")
+  title         String?
+  recipientName String?
+  senderName    String?
+  isAnonymous   Boolean   @default(false)
 
-  accessCodeHash  String?
-  hasAccessCode   Boolean   @default(false)
+  content       String
+  styleConfig   Json?
 
-  isOpenOnce      Boolean   @default(false)
-  openedAt        DateTime?
-  expiresAt       DateTime?
+  isOpenOnce    Boolean   @default(false)
+  openedAt      DateTime?
+  expiresAt     DateTime?
 
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vaultId       String
+  vault         Vault     @relation(fields: [vaultId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@map("letters")
 }
