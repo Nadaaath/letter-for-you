@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+
+  letters      Letter[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Letter {
+  id              String    @id @default(uuid())
+  title           String
+  content         String
+
+  fontFamily      String    @default("Playfair Display")
+  textColor       String    @default("#7f1d1d")
+  backgroundColor String    @default("#fff7ed")
+  theme           String    @default("rose")
+  decoration      String    @default("flowers")
+
+  accessCodeHash  String?
+  hasAccessCode   Boolean   @default(false)
+
+  isOpenOnce      Boolean   @default(false)
+  openedAt        DateTime?
+  expiresAt       DateTime?
+
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("letters")
+}
