@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, KeyRound, Loader2, LockKeyhole } from "lucide-react";
+import { Flower2, Heart, KeyRound, Loader2, LockKeyhole } from "lucide-react";
 
 import { unlockVault } from "../services/lettersApi";
-import { saveOpenedLetter } from "../../../lib/storage";
+import { saveOpenedVault } from "../../../lib/storage";
 
 export default function UnlockLetterForm() {
   const navigate = useNavigate();
@@ -24,12 +24,12 @@ export default function UnlockLetterForm() {
     try {
       setLoading(true);
 
-      const letter = await unlockVault(code);
+      const vault = await unlockVault(code);
 
-      saveOpenedLetter(letter);
+      saveOpenedVault(vault);
       navigate("/letter/opened");
     } catch (err) {
-      setError(err.response?.data?.message || "Could not open this letter");
+      setError(err.response?.data?.message || "Could not open this private garden");
     } finally {
       setLoading(false);
     }
@@ -45,8 +45,8 @@ export default function UnlockLetterForm() {
       </div>
 
       <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-sm font-semibold text-burgundy shadow-sm">
-        <Heart size={15} fill="currentColor" />
-        Someone left you a letter
+        <Flower2 size={15} />
+        A private garden is waiting
       </p>
 
       <h1 className="font-serif text-5xl font-bold text-burgundy">
@@ -55,7 +55,7 @@ export default function UnlockLetterForm() {
 
       <p className="mx-auto mt-4 max-w-md text-rose-950/70">
         If someone shared a Letter For You code with you, enter it below to
-        unlock your private message.
+        unlock your private garden of letters.
       </p>
 
       {error && (
@@ -90,7 +90,10 @@ export default function UnlockLetterForm() {
             Opening...
           </>
         ) : (
-          "Open letter"
+          <>
+            <Heart size={18} fill="currentColor" />
+            Open private garden
+          </>
         )}
       </button>
     </form>

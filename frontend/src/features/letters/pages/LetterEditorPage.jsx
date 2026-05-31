@@ -6,7 +6,8 @@ import { addLetterToVault } from "../services/lettersApi";
 import { letterFonts } from "../data/letterThemes";
 import LetterPreview from "../components/LetterPreview";
 import ThemeSelector from "../components/ThemeSelector";
-
+import EnvelopeSelector from "../components/EnvelopeSelector";
+import DecorationPicker from "../components/DecorationPicker";
 const initialLetter = {
   title: "",
   recipientName: "",
@@ -97,6 +98,57 @@ export default function LetterEditorPage() {
       },
     });
   }
+  function applyEnvelope(envelope) {
+  setFormData({
+    ...formData,
+    styleConfig: {
+      ...formData.styleConfig,
+      envelope: {
+        style: envelope.id,
+        color: envelope.color,
+        seal: envelope.seal,
+      },
+    },
+  });
+}
+
+function toggleFlower(flowerId) {
+  const currentFlowers = formData.styleConfig.decorations.flowers || [];
+
+  const updatedFlowers = currentFlowers.includes(flowerId)
+    ? currentFlowers.filter((id) => id !== flowerId)
+    : [...currentFlowers, flowerId];
+
+  setFormData({
+    ...formData,
+    styleConfig: {
+      ...formData.styleConfig,
+      decorations: {
+        ...formData.styleConfig.decorations,
+        flowers: updatedFlowers,
+      },
+    },
+  });
+}
+
+function toggleIcon(iconId) {
+  const currentIcons = formData.styleConfig.decorations.icons || [];
+
+  const updatedIcons = currentIcons.includes(iconId)
+    ? currentIcons.filter((id) => id !== iconId)
+    : [...currentIcons, iconId];
+
+  setFormData({
+    ...formData,
+    styleConfig: {
+      ...formData.styleConfig,
+      decorations: {
+        ...formData.styleConfig.decorations,
+        icons: updatedIcons,
+      },
+    },
+  });
+}
 
   async function handleSave(event) {
     event.preventDefault();
@@ -315,13 +367,25 @@ export default function LetterEditorPage() {
         </div>
 
         <div className="space-y-6">
-          <ThemeSelector
-            selectedThemeId={formData.styleConfig.theme.id}
-            onSelectTheme={applyTheme}
-          />
+  <ThemeSelector
+    selectedThemeId={formData.styleConfig.theme.id}
+    onSelectTheme={applyTheme}
+  />
 
-          <LetterPreview letter={formData} />
-        </div>
+  <EnvelopeSelector
+    selectedEnvelopeId={formData.styleConfig.envelope.style}
+    onSelectEnvelope={applyEnvelope}
+  />
+
+  <DecorationPicker
+    selectedFlowers={formData.styleConfig.decorations.flowers}
+    selectedIcons={formData.styleConfig.decorations.icons}
+    onToggleFlower={toggleFlower}
+    onToggleIcon={toggleIcon}
+  />
+
+  <LetterPreview letter={formData} />
+</div>
       </form>
     </section>
   );

@@ -35,6 +35,15 @@ export const letterThemes = [
     decoration: "ribbon",
     symbol: "✉",
   },
+  {
+    id: "minimal",
+    name: "Soft Minimal",
+    description: "Clean and gentle",
+    backgroundColor: "#ffffff",
+    textColor: "#3f1d1d",
+    decoration: "minimal",
+    symbol: "♡",
+  },
 ];
 
 export const letterFonts = [

@@ -1,5 +1,5 @@
 const TOKEN_KEY = "letter_for_you_token";
-const OPENED_LETTER_KEY = "opened_letter";
+const OPENED_VAULT_KEY = "opened_vault";
 
 export function saveToken(token) {
   localStorage.setItem(TOKEN_KEY, token);
@@ -13,20 +13,20 @@ export function removeToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-export function saveOpenedLetter(letter) {
-  sessionStorage.setItem(OPENED_LETTER_KEY, JSON.stringify(letter));
+export function saveOpenedVault(vault) {
+  sessionStorage.setItem(OPENED_VAULT_KEY, JSON.stringify(vault));
 }
 
-export function getOpenedLetter() {
-  const storedLetter = sessionStorage.getItem(OPENED_LETTER_KEY);
+export function getOpenedVault() {
+  const storedVault = sessionStorage.getItem(OPENED_VAULT_KEY);
 
-  if (!storedLetter) {
+  if (!storedVault) {
     return null;
   }
 
-  return JSON.parse(storedLetter);
+  return JSON.parse(storedVault);
 }
 
-export function clearOpenedLetter() {
-  sessionStorage.removeItem(OPENED_LETTER_KEY);
+export function clearOpenedVault() {
+  sessionStorage.removeItem(OPENED_VAULT_KEY);
 }
