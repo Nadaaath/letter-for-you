@@ -173,18 +173,36 @@ export async function unlockVaultByCode(code) {
   const now = new Date();
 
   const visibleLetters = [];
+const openOnceLetterIdsToMark = [];
 
-  for (const letter of matchedVault.letters) {
-    if (letter.expiresAt && letter.expiresAt < now) {
-      continue;
-    }
-
-    if (letter.isOpenOnce && letter.openedAt) {
-      continue;
-    }
-
-    visibleLetters.push(letter);
+for (const letter of matchedVault.letters) {
+  if (letter.expiresAt && letter.expiresAt < now) {
+    continue;
   }
+
+  if (letter.isOpenOnce && letter.openedAt) {
+    continue;
+  }
+
+  visibleLetters.push(letter);
+
+  if (letter.isOpenOnce && !letter.openedAt) {
+    openOnceLetterIdsToMark.push(letter.id);
+  }
+}
+
+if (openOnceLetterIdsToMark.length > 0) {
+  await prisma.letter.updateMany({
+    where: {
+      id: {
+        in: openOnceLetterIdsToMark,
+      },
+    },
+    data: {
+      openedAt: now,
+    },
+  });
+}
 
   return {
     id: matchedVault.id,
