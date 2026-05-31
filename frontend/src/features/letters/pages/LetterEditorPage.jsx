@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2, Save, Sparkles } from "lucide-react";
-
+import { ArrowLeft, Loader2, LockKeyhole, Save, Sparkles, X } from "lucide-react";
 import { addLetterToVault } from "../services/lettersApi";
 import { letterFonts } from "../data/letterThemes";
 import LetterPreview from "../components/LetterPreview";
@@ -51,6 +50,7 @@ export default function LetterEditorPage() {
 
   const [formData, setFormData] = useState(initialLetter);
   const [saving, setSaving] = useState(false);
+  const [showSealConfirm, setShowSealConfirm] = useState(false);
   const [error, setError] = useState("");
 
   function handleChange(event) {
@@ -150,29 +150,113 @@ function toggleIcon(iconId) {
   });
 }
 
-  async function handleSave(event) {
-    event.preventDefault();
-    setError("");
+  function handleSave(event) {
+  event.preventDefault();
+  setError("");
 
-    if (!vaultId) {
-      setError("No private garden selected.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      await addLetterToVault(vaultId, formData);
-
-      navigate(`/vaults/${vaultId}`);
-    } catch (err) {
-      setError(err.response?.data?.message || "Could not save letter");
-    } finally {
-      setSaving(false);
-    }
+  if (!vaultId) {
+    setError("No private garden selected.");
+    return;
   }
 
+  if (!formData.content.trim()) {
+    setError("Please write your letter before sealing it.");
+    return;
+  }
+
+  setShowSealConfirm(true);
+}
+
+async function confirmSealLetter() {
+  setError("");
+
+  try {
+    setSaving(true);
+
+    await addLetterToVault(vaultId, formData);
+
+    setShowSealConfirm(false);
+    navigate(`/vaults/${vaultId}`);
+  } catch (err) {
+    setError(err.response?.data?.message || "Could not seal letter");
+  } finally {
+    setSaving(false);
+  }
+}
+
   return (
+  <>
+    {showSealConfirm && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-burgundy/30 px-5 backdrop-blur-sm">
+        <div className="relative w-full max-w-lg rounded-[2rem] border border-rose-100 bg-white p-7 shadow-2xl">
+          <button
+            type="button"
+            onClick={() => setShowSealConfirm(false)}
+            className="absolute right-5 top-5 rounded-full bg-rose-50 p-2 text-burgundy hover:bg-rose-100"
+            aria-label="Close confirmation"
+          >
+            <X size={18} />
+          </button>
+
+          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-burgundy">
+            <LockKeyhole size={26} />
+          </div>
+
+          <h2 className="font-serif text-3xl font-bold text-burgundy">
+            Seal this letter?
+          </h2>
+
+          <p className="mt-3 leading-7 text-rose-950/70">
+            Once this letter is sealed and added to the private garden, it cannot
+            be edited. You can only delete it later if needed.
+          </p>
+
+          <div className="mt-6 rounded-2xl border border-rose-100 bg-rose-50/60 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">
+              Preview
+            </p>
+
+            <h3 className="mt-2 font-serif text-xl font-bold text-burgundy">
+              {formData.title || "Untitled letter"}
+            </h3>
+
+            <p className="mt-2 line-clamp-3 text-sm leading-6 text-rose-950/70">
+              {formData.content}
+            </p>
+          </div>
+
+          <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setShowSealConfirm(false)}
+              className="rounded-2xl border border-rose-200 bg-white px-5 py-3 font-semibold text-burgundy hover:bg-rose-50"
+            >
+              Keep editing
+            </button>
+
+            <button
+              type="button"
+              onClick={confirmSealLetter}
+              disabled={saving}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-burgundy px-5 py-3 font-semibold text-white shadow-soft hover:opacity-90 disabled:opacity-60"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="animate-spin" size={18} />
+                  Sealing...
+                </>
+              ) : (
+                <>
+                  <LockKeyhole size={18} />
+                  Yes, seal it
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     <section className="mx-auto max-w-7xl px-5 py-8">
       <button
         onClick={() => navigate(`/vaults/${vaultId}`)}
@@ -354,13 +438,13 @@ function toggleIcon(iconId) {
               {saving ? (
                 <>
                   <Loader2 className="animate-spin" size={18} />
-                  Saving...
+                  Sealing...
                 </>
               ) : (
                 <>
-                  <Save size={18} />
-                  Save letter to garden
-                </>
+  <LockKeyhole size={18} />
+  Seal and add to garden
+</>
               )}
             </button>
           </div>
@@ -388,5 +472,6 @@ function toggleIcon(iconId) {
 </div>
       </form>
     </section>
+  </>
   );
 }
