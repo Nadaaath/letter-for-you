@@ -114,11 +114,6 @@ export default function LandingPage() {
             text="Once a letter is sealed, it cannot be edited. It feels more meaningful, like a real message."
           />
 
-          <FeatureCard
-            icon={<KeyRound size={24} />}
-            title="Open-once option"
-            text="Some letters can be opened only once, making them feel even more intimate and special."
-          />
         </div>
       </section>
 

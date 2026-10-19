@@ -28,7 +28,6 @@ export async function createLetter(userId, vaultId, data) {
       isAnonymous: data.isAnonymous || false,
       content: data.content,
       styleConfig: data.styleConfig || null,
-      isOpenOnce: data.isOpenOnce || false,
       expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
       vaultId,
     },
@@ -82,9 +81,6 @@ export async function updateLetter(userId, vaultId, letterId, data) {
       ...(data.content !== undefined && { content: data.content }),
       ...(data.styleConfig !== undefined && {
         styleConfig: data.styleConfig || null,
-      }),
-      ...(data.isOpenOnce !== undefined && {
-        isOpenOnce: data.isOpenOnce,
       }),
       ...(data.expiresAt !== undefined && {
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,

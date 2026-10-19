@@ -41,7 +41,6 @@ const initialLetter = {
     },
   },
 
-  isOpenOnce: false,
 };
 
 export default function LetterEditorPage() {
@@ -418,23 +417,6 @@ async function confirmSealLetter() {
                 />
               </div>
             </div>
-
-            <label className="flex items-start gap-3 rounded-2xl border border-rose-100 bg-white/70 p-4 text-sm font-semibold text-burgundy">
-  <input
-    name="isOpenOnce"
-    type="checkbox"
-    checked={formData.isOpenOnce}
-    onChange={handleChange}
-    className="mt-1 h-4 w-4"
-  />
-  <span>
-    This letter can be opened only once.
-    <span className="mt-1 block text-xs font-normal text-rose-950/60">
-      After the recipient unlocks the garden and sees it, this letter will no
-      longer appear again.
-    </span>
-  </span>
-</label>
 
             <button
               type="submit"

@@ -51,8 +51,6 @@ model Letter {
   content       String
   styleConfig   Json?
 
-  isOpenOnce    Boolean   @default(false)
-  openedAt      DateTime?
   expiresAt     DateTime?
 
   vaultId       String
