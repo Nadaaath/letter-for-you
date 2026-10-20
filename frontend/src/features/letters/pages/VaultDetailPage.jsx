@@ -17,6 +17,7 @@ import {
   getVaultById,
 } from "../services/lettersApi";
 import { formatDate } from "../../../lib/formatDate";
+import { getManagementLink, importManagementLink } from "../../../lib/storage";
 import CodeGeneratedBox from "../components/CodeGeneratedBox";
 import EnvelopeThumbnail from "../components/EnvelopeThumbnail";
 
@@ -86,6 +87,7 @@ export default function VaultDetailPage() {
   }
 
   useEffect(() => {
+    importManagementLink(vaultId);
     loadVault();
   }, [vaultId]);
 
@@ -195,6 +197,16 @@ export default function VaultDetailPage() {
             <h2 className="font-serif text-2xl font-bold text-burgundy">
               Share this garden
             </h2>
+            <p className="mt-3 text-sm text-rose-950/70">
+              Save your private management link. Anyone who has it can edit or delete this garden â€” never send it to the reader.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(getManagementLink(vaultId) || "")}
+              className="mt-3 w-full rounded-full border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-burgundy"
+            >
+              Copy private management link
+            </button>
 
             <p className="mt-2 text-sm leading-6 text-rose-950/70">
               Generate one access code for this whole private garden. The
@@ -342,10 +354,10 @@ function LetterPopupCard({ letter }) {
 
   const themeSymbol =
     styleConfig.theme?.id === "midnight"
-      ? "☾"
+      ? "â˜¾"
       : styleConfig.theme?.id === "lavender"
-        ? "✦"
-        : "♡";
+        ? "âœ¦"
+        : "â™¡";
 
   return (
     <article className="rounded-[2rem] border border-rose-100 bg-white/80 p-5">
@@ -358,7 +370,7 @@ function LetterPopupCard({ letter }) {
         }}
       >
         <div className="mb-10 flex items-center justify-between text-current opacity-80">
-          <span className="text-3xl">♡</span>
+          <span className="text-3xl">â™¡</span>
           <span className="font-script text-4xl">{themeSymbol}</span>
         </div>
 

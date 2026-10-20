@@ -1,55 +1,38 @@
 import express from "express";
-
-import { requireAuth } from "../middleware/auth.middleware.js";
+import rateLimit from "express-rate-limit";
+import { requireGardenOwner } from "../middleware/garden.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
+import { createVaultSchema, updateVaultSchema, unlockVaultSchema } from "../validators/vault.validator.js";
+import { createLetterSchema } from "../validators/letter.validator.js";
 import {
-  createVaultSchema,
-  updateVaultSchema,
-  unlockVaultSchema,
-} from "../validators/vault.validator.js";
-import {
-  createLetterSchema,
-  updateLetterSchema,
-} from "../validators/letter.validator.js";
-
-import {
-  addLetter,
-  create,
-  editLetter,
-  generateCode,
-  getById,
-  getLetter,
-  list,
-  listLetters,
-  remove,
-  removeLetter,
-  unlock,
-  update,
+  addLetter, create, generateCode, getById, getLetter, listLetters,
+  remove, removeLetter, unlock, update,
 } from "../controllers/vault.controller.js";
 
 const router = express.Router();
 
-router.post("/unlock", validate(unlockVaultSchema), unlock);
-
-router.use(requireAuth);
+// Unlock is public but aggressively rate-limited to deter code guessing.
+const unlockLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { message: "Too many attempts. Please try later." },
+});
 
 router.post("/", validate(createVaultSchema), create);
-router.get("/", list);
+router.post("/unlock", unlockLimiter, validate(unlockVaultSchema), unlock);
 
+// Every modification/read of the CREATOR view requires the management token.
+router.use("/:vaultId", requireGardenOwner);
 router.get("/:vaultId", getById);
 router.put("/:vaultId", validate(updateVaultSchema), update);
 router.delete("/:vaultId", remove);
-
 router.post("/:vaultId/generate-code", generateCode);
-
 router.post("/:vaultId/letters", validate(createLetterSchema), addLetter);
 router.get("/:vaultId/letters", listLetters);
 router.get("/:vaultId/letters/:letterId", getLetter);
-router.put(
-  "/:vaultId/letters/:letterId",
-  validate(updateLetterSchema),
-  editLetter
-);
+// Sealed letters intentionally have NO update endpoint.
 router.delete("/:vaultId/letters/:letterId", removeLetter);
 
 export default router;

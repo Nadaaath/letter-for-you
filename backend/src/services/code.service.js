@@ -1,24 +1,22 @@
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 
-const CODE_PREFIXES = [
-  "ROSE",
-  "LOVE",
-  "NOTE",
-  "DEAR",
-  "STAR",
-  "MOON",
-  "LILY",
-  "HUGS",
-];
-
+const PREFIXES = ["ROSE", "LOVE", "NOTE", "DEAR", "STAR", "MOON", "LILY", "HUGS"];
 const SALT_ROUNDS = 12;
 
 export function generateAccessCode() {
-  const prefix = CODE_PREFIXES[Math.floor(Math.random() * CODE_PREFIXES.length)];
-  const randomPart = crypto.randomBytes(3).toString("hex").toUpperCase();
+  // 96 bits of random entropy for newly issued reader codes.
+  const prefix = PREFIXES[crypto.randomInt(PREFIXES.length)];
+  return `${prefix}-${crypto.randomBytes(12).toString("hex").toUpperCase()}`;
+}
 
-  return `${prefix}-${randomPart}`;
+export function generateManagementToken() {
+  // 256 bits: this is effectively the creator's password, not a reader code.
+  return crypto.randomBytes(32).toString("hex");
+}
+
+export function normalizeCode(code) {
+  return code.trim().toUpperCase();
 }
 
 export async function hashAccessCode(code) {
@@ -27,8 +25,4 @@ export async function hashAccessCode(code) {
 
 export async function compareAccessCode(code, hash) {
   return bcrypt.compare(normalizeCode(code), hash);
-}
-
-export function normalizeCode(code) {
-  return code.trim().toUpperCase();
 }

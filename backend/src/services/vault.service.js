@@ -1,196 +1,123 @@
 import { prisma } from "../config/prisma.js";
+import { digestManagementToken } from "../middleware/garden.middleware.js";
 import {
   compareAccessCode,
   generateAccessCode,
+  generateManagementToken,
   hashAccessCode,
   normalizeCode,
 } from "./code.service.js";
 
-export async function createVault(userId, data) {
-  return prisma.vault.create({
+const managedSelect = {
+  id: true,
+  name: true,
+  description: true,
+  createdAt: true,
+  updatedAt: true,
+  hasAccessCode: true,
+  letters: { orderBy: { createdAt: "desc" } },
+  _count: { select: { letters: true } },
+};
+
+export async function createVault(data) {
+  const managementToken = generateManagementToken();
+  const vault = await prisma.vault.create({
     data: {
       name: data.name,
       description: data.description || null,
-      userId,
+      ownerTokenHash: digestManagementToken(managementToken),
     },
-    include: {
-      _count: {
-        select: {
-          letters: true,
-        },
-      },
-    },
+    select: managedSelect,
   });
+  return { vault, managementToken };
 }
 
-export async function getUserVaults(userId) {
-  return prisma.vault.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    include: {
-      _count: {
-        select: {
-          letters: true,
-        },
-      },
-    },
+// Call only AFTER requireGardenOwner middleware has authorized the request.
+export async function getManagedVault(vaultId) {
+  const vault = await prisma.vault.findUnique({
+    where: { id: vaultId },
+    select: managedSelect,
   });
-}
-
-export async function getUserVaultById(userId, vaultId) {
-  const vault = await prisma.vault.findFirst({
-    where: {
-      id: vaultId,
-      userId,
-    },
-    include: {
-      letters: {
-        orderBy: {
-          createdAt: "desc",
-        },
-      },
-      _count: {
-        select: {
-          letters: true,
-        },
-      },
-    },
-  });
-
   if (!vault) {
     const error = new Error("Private garden not found");
     error.statusCode = 404;
     throw error;
   }
-
   return vault;
 }
 
-export async function updateVault(userId, vaultId, data) {
-  await getUserVaultById(userId, vaultId);
-
+export async function updateVault(vaultId, data) {
   return prisma.vault.update({
     where: { id: vaultId },
     data: {
       ...(data.name !== undefined && { name: data.name }),
-      ...(data.description !== undefined && {
-        description: data.description || null,
-      }),
+      ...(data.description !== undefined && { description: data.description || null }),
     },
-    include: {
-      _count: {
-        select: {
-          letters: true,
-        },
-      },
-    },
+    select: managedSelect,
   });
 }
 
-export async function deleteVault(userId, vaultId) {
-  await getUserVaultById(userId, vaultId);
-
-  await prisma.vault.delete({
-    where: { id: vaultId },
-  });
-
-  return {
-    message: "Private garden deleted successfully",
-  };
+export async function deleteVault(vaultId) {
+  await prisma.vault.delete({ where: { id: vaultId } });
+  return { message: "Private garden deleted" };
 }
 
-export async function generateCodeForVault(userId, vaultId) {
-  await getUserVaultById(userId, vaultId);
-
-  const plainCode = generateAccessCode();
-  const codeHash = await hashAccessCode(plainCode);
-
-  const vault = await prisma.vault.update({
+export async function generateCodeForVault(vaultId) {
+  const accessCode = generateAccessCode();
+  const accessCodeHash = await hashAccessCode(accessCode);
+  await prisma.vault.update({
     where: { id: vaultId },
-    data: {
-      accessCodeHash: codeHash,
-      hasAccessCode: true,
-    },
-    include: {
-      _count: {
-        select: {
-          letters: true,
-        },
-      },
-    },
+    data: { accessCodeHash, hasAccessCode: true },
   });
-
-  return {
-    vault,
-    accessCode: plainCode,
-  };
+  return { vault: await getManagedVault(vaultId), accessCode };
 }
 
 export async function unlockVaultByCode(code) {
-  const normalizedCode = normalizeCode(code);
-
+  const normalized = normalizeCode(code);
+  // This preserves old bcrypt-based codes. It does NOT scale well; replace with
+  // indexed keyed lookups before high-traffic production deployment.
   const vaults = await prisma.vault.findMany({
-    where: {
-      hasAccessCode: true,
-      accessCodeHash: {
-        not: null,
-      },
-    },
-    include: {
-      user: {
-        select: {
-          name: true,
-        },
-      },
-      letters: {
-        orderBy: {
-          createdAt: "desc",
-        },
-      },
+    where: { hasAccessCode: true, accessCodeHash: { not: null } },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      accessCodeHash: true,
+      user: { select: { name: true } },
+      letters: { orderBy: { createdAt: "desc" } },
     },
   });
 
-  let matchedVault = null;
-
+  let matched = null;
   for (const vault of vaults) {
-    const isMatch = await compareAccessCode(
-      normalizedCode,
-      vault.accessCodeHash
-    );
-
-    if (isMatch) {
-      matchedVault = vault;
+    if (await compareAccessCode(normalized, vault.accessCodeHash)) {
+      matched = vault;
       break;
     }
   }
-
-  if (!matchedVault) {
+  if (!matched) {
     const error = new Error("Invalid access code");
     error.statusCode = 404;
     throw error;
   }
 
   const now = new Date();
-
-  const visibleLetters = matchedVault.letters.filter(
-    (letter) => !letter.expiresAt || letter.expiresAt >= now
-  );
-
   return {
-    id: matchedVault.id,
-    name: matchedVault.name,
-    description: matchedVault.description,
-    from: matchedVault.user.name,
-    letters: visibleLetters.map((letter) => ({
-      id: letter.id,
-      title: letter.title,
-      recipientName: letter.recipientName,
-      senderName: letter.isAnonymous ? null : letter.senderName,
-      isAnonymous: letter.isAnonymous,
-      content: letter.content,
-      styleConfig: letter.styleConfig,
-      expiresAt: letter.expiresAt,
-      createdAt: letter.createdAt,
-    })),
+    id: matched.id,
+    name: matched.name,
+    description: matched.description,
+    from: matched.user?.name || null,
+    letters: matched.letters.filter((letter) => !letter.expiresAt || letter.expiresAt >= now)
+      .map((letter) => ({
+        id: letter.id,
+        title: letter.title,
+        recipientName: letter.recipientName,
+        senderName: letter.isAnonymous ? null : letter.senderName,
+        isAnonymous: letter.isAnonymous,
+        content: letter.content,
+        styleConfig: letter.styleConfig,
+        expiresAt: letter.expiresAt,
+        createdAt: letter.createdAt,
+      })),
   };
 }

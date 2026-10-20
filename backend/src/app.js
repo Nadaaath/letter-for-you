@@ -7,63 +7,26 @@ import rateLimit from "express-rate-limit";
 import { env } from "./config/env.js";
 import { prisma } from "./config/prisma.js";
 import { errorMiddleware } from "./middleware/error.middleware.js";
-import authRoutes from "./routes/auth.routes.js";
 import vaultRoutes from "./routes/vault.routes.js";
+
 const app = express();
-
-app.use(
-  cors({
-    origin: env.frontendUrl,
-    credentials: true,
-  })
-);
-
+app.disable("x-powered-by");
+app.use(cors({ origin: env.frontendUrl, credentials: false }));
 app.use(helmet());
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300 }));
 
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 300,
-  message: {
-    message: "Too many requests. Please try again later.",
-  },
-});
-
-app.use(globalLimiter);
-
-app.get("/", (req, res) => {
-  res.json({
-    message: "Letter For You API is running",
-    status: "healthy",
-  });
-});
-
-app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    service: "letter-for-you-backend",
-    timestamp: new Date().toISOString(),
-  });
-});
-
-app.get("/health/db", async (req, res, next) => {
+app.get("/", (_req, res) => res.json({ message: "Letter For You API is running" }));
+app.get("/health", (_req, res) => res.json({ status: "ok", service: "letter-for-you-backend" }));
+app.get("/health/db", async (_req, res, next) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-
-    res.json({
-      status: "ok",
-      database: "connected",
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    next(error);
-  }
+    res.json({ status: "ok", database: "connected" });
+  } catch (error) { next(error); }
 });
 
-app.use("/api/auth", authRoutes);
+// No /api/auth route in the account-free application.
 app.use("/api/vaults", vaultRoutes);
-
 app.use(errorMiddleware);
-
 export default app;

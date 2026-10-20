@@ -7,14 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Retained temporarily for legacy data. No account-based routes are exposed.
 model User {
   id           String   @id @default(uuid())
   name         String
   email        String   @unique
   passwordHash String
-
   vaults       Vault[]
-
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -22,40 +21,37 @@ model User {
 }
 
 model Vault {
-  id             String   @id @default(uuid())
-  name           String
-  description    String?
+  id               String   @id @default(uuid())
+  name             String
+  description      String?
+  // Read-only code is different from the creator's high-entropy token.
+  accessCodeHash   String?
+  hasAccessCode    Boolean  @default(false)
+  ownerTokenHash   String?  @unique
 
-  accessCodeHash String?
-  hasAccessCode  Boolean  @default(false)
+  // Nullable to preserve previously created account-owned gardens.
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  letters        Letter[]
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  letters          Letter[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@map("vaults")
 }
 
 model Letter {
   id            String    @id @default(uuid())
-
   title         String?
   recipientName String?
   senderName    String?
   isAnonymous   Boolean   @default(false)
-
   content       String
   styleConfig   Json?
-
   expiresAt     DateTime?
 
   vaultId       String
   vault         Vault     @relation(fields: [vaultId], references: [id], onDelete: Cascade)
-
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
