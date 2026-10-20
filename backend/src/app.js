@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 
 import { env } from "./config/env.js";
@@ -11,10 +10,10 @@ import vaultRoutes from "./routes/vault.routes.js";
 
 const app = express();
 app.disable("x-powered-by");
+app.set("trust proxy", 1);
 app.use(cors({ origin: env.frontendUrl, credentials: false }));
 app.use(helmet());
 app.use(express.json({ limit: "1mb" }));
-app.use(cookieParser());
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300 }));
 
 app.get("/", (_req, res) => res.json({ message: "Letter For You API is running" }));

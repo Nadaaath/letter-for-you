@@ -20,8 +20,17 @@ const unlockLimiter = rateLimit({
   message: { message: "Too many attempts. Please try later." },
 });
 
-router.post("/", validate(createVaultSchema), create);
-router.post("/unlock", unlockLimiter, validate(unlockVaultSchema), unlock);
+const createLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: {
+    message: "Too many gardens created. Please try again later.",
+  },
+});
+
+router.post("/", createLimiter, validate(createVaultSchema), create);router.post("/unlock", unlockLimiter, validate(unlockVaultSchema), unlock);
 
 // Every modification/read of the CREATOR view requires the management token.
 router.use("/:vaultId", requireGardenOwner);
