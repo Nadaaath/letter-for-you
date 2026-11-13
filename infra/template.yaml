@@ -1,0 +1,86 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: Letter4You - Development DynamoDB infrastructure
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+
+Resources:
+
+  GardensTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub "letter4you-${Stage}-gardens"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: gardenId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: gardenId
+          KeyType: HASH
+      Tags:
+        - Key: Project
+          Value: Letter4You
+        - Key: Environment
+          Value: !Ref Stage
+
+  LettersTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub "letter4you-${Stage}-letters"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: gardenId
+          AttributeType: S
+        - AttributeName: letterId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: gardenId
+          KeyType: HASH
+        - AttributeName: letterId
+          KeyType: RANGE
+      Tags:
+        - Key: Project
+          Value: Letter4You
+        - Key: Environment
+          Value: !Ref Stage
+
+  RecipientCodesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub "letter4you-${Stage}-recipient-codes"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: codeDigest
+          AttributeType: S
+      KeySchema:
+        - AttributeName: codeDigest
+          KeyType: HASH
+      Tags:
+        - Key: Project
+          Value: Letter4You
+        - Key: Environment
+          Value: !Ref Stage
+
+Outputs:
+  GardensTableName:
+    Value: !Ref GardensTable
+
+  LettersTableName:
+    Value: !Ref LettersTable
+
+  RecipientCodesTableName:
+    Value: !Ref RecipientCodesTable
+
