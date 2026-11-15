@@ -1,19 +1,9 @@
-FROM node:22-bookworm-slim
-
+FROM node:22-alpine
 WORKDIR /app
-
 ENV NODE_ENV=production
-
 COPY package*.json ./
-
-RUN npm ci
-
-COPY prisma ./prisma
-
-RUN npx prisma generate
-
+RUN npm ci --omit=dev
 COPY src ./src
-
+USER node
 EXPOSE 5000
-
-CMD ["sh", "-c", "npx prisma migrate deploy && node src/server.js"]
+CMD ["node", "src/server.js"]

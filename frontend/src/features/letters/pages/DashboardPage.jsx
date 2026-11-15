@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Flower2, Loader2, Plus, Search, Copy } from "lucide-react";
 import {
   createVault,
   deleteVault,
-  generateVaultCode,
   getVaultById,
 } from "../services/lettersApi";
 import {
@@ -17,7 +16,6 @@ import VaultCard from "../components/VaultCard";
 import CodeGeneratedBox from "../components/CodeGeneratedBox";
 
 export default function DashboardPage() {
-  const navigate = useNavigate();
   const [vaults, setVaults] = useState([]);
   const [search, setSearch] = useState("");
   const [newVaultName, setNewVaultName] = useState("");
@@ -50,7 +48,7 @@ export default function DashboardPage() {
     try {
       setCreating(true);
       setError("");
-      const { vault, managementToken } = await createVault({
+      const { vault, managementToken, accessCode } = await createVault({
         name: newVaultName.trim(),
         description: newVaultDescription.trim() || null,
       });
@@ -59,6 +57,8 @@ export default function DashboardPage() {
       const link = getManagementLink(vault.id);
       setNewManagementLink(link || "");
       setVaults((items) => [vault, ...items]);
+      setGeneratedCode(accessCode);
+      setGeneratedFor(vault.name);
       setNewVaultName("");
       setNewVaultDescription("");
       // Stay on this page so the user can copy the management link immediately.
@@ -77,18 +77,6 @@ export default function DashboardPage() {
       setVaults((items) => items.filter((vault) => vault.id !== vaultId));
     } catch (err) {
       setError(err.response?.data?.message || "Could not delete private garden");
-    }
-  }
-
-  async function handleGenerateCode(vaultId) {
-    try {
-      setGeneratedCode("");
-      const response = await generateVaultCode(vaultId);
-      setGeneratedCode(response.accessCode);
-      setGeneratedFor(response.vault.name);
-      setVaults((items) => items.map((v) => v.id === vaultId ? response.vault : v));
-    } catch (err) {
-      setError(err.response?.data?.message || "Could not generate code");
     }
   }
 
@@ -135,7 +123,7 @@ export default function DashboardPage() {
       </div>
       {loading ? <p className="text-rose-950/70">Loading saved gardens...</p> : filtered.length ? (
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((vault) => <VaultCard key={vault.id} vault={vault} onDelete={handleDeleteVault} onGenerateCode={handleGenerateCode} />)}
+          {filtered.map((vault) => <VaultCard key={vault.id} vault={vault} onDelete={handleDeleteVault} />)}
         </div>
       ) : (
         <div className="glass-card rounded-[2rem] p-10 text-center shadow-soft">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, LockKeyhole, Save, Sparkles, X } from "lucide-react";
 import { addLetterToVault } from "../services/lettersApi";
@@ -48,6 +48,7 @@ export default function LetterEditorPage() {
   const { vaultId } = useParams();
 
   const [formData, setFormData] = useState(initialLetter);
+  const letterRequestId = useRef(crypto.randomUUID());
   const [saving, setSaving] = useState(false);
   const [showSealConfirm, setShowSealConfirm] = useState(false);
   const [error, setError] = useState("");
@@ -172,7 +173,7 @@ async function confirmSealLetter() {
   try {
     setSaving(true);
 
-    await addLetterToVault(vaultId, formData);
+    await addLetterToVault(vaultId, { ...formData, requestId: letterRequestId.current });
 
     setShowSealConfirm(false);
     navigate(`/vaults/${vaultId}`);

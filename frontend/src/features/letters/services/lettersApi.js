@@ -14,7 +14,7 @@ export async function getVaultById(vaultId) {
 
 export async function createVault(vaultData) {
   const response = await api.post("/vaults", vaultData);
-  return response.data; // { vault, managementToken }
+  return response.data; // { vault, managementToken, accessCode }
 }
 
 export async function updateVault(vaultId, data) {
@@ -27,13 +27,14 @@ export async function deleteVault(vaultId) {
   return response.data;
 }
 
-export async function generateVaultCode(vaultId) {
-  const response = await api.post(`/vaults/${vaultId}/generate-code`, {}, managementConfig(vaultId));
-  return response.data;
-}
-
 export async function addLetterToVault(vaultId, data) {
-  const response = await api.post(`/vaults/${vaultId}/letters`, data, managementConfig(vaultId));
+  const requestId = data.requestId || crypto.randomUUID();
+  const letterData = { ...data };
+  delete letterData.requestId;
+  const config = managementConfig(vaultId);
+  const response = await api.post(`/vaults/${vaultId}/letters`, letterData, {
+    ...config, headers: { ...config.headers, "x-request-id": requestId },
+  });
   return response.data.letter;
 }
 

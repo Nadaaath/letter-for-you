@@ -13,12 +13,10 @@ import {
 
 import {
   deleteVaultLetter,
-  generateVaultCode,
   getVaultById,
 } from "../services/lettersApi";
 import { formatDate } from "../../../lib/formatDate";
 import { getManagementLink, importManagementLink } from "../../../lib/storage";
-import CodeGeneratedBox from "../components/CodeGeneratedBox";
 import EnvelopeThumbnail from "../components/EnvelopeThumbnail";
 
 export default function VaultDetailPage() {
@@ -26,9 +24,7 @@ export default function VaultDetailPage() {
 
   const [selectedLetter, setSelectedLetter] = useState(null);
   const [vault, setVault] = useState(null);
-  const [generatedCode, setGeneratedCode] = useState("");
   const [loading, setLoading] = useState(true);
-  const [generatingCode, setGeneratingCode] = useState(false);
   const [error, setError] = useState("");
 
   async function loadVault() {
@@ -42,22 +38,6 @@ export default function VaultDetailPage() {
       setError(err.response?.data?.message || "Could not load private garden");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleGenerateCode() {
-    try {
-      setGeneratingCode(true);
-      setGeneratedCode("");
-
-      const response = await generateVaultCode(vaultId);
-
-      setGeneratedCode(response.accessCode);
-      setVault(response.vault);
-    } catch (err) {
-      alert(err.response?.data?.message || "Could not generate code");
-    } finally {
-      setGeneratingCode(false);
     }
   }
 
@@ -209,35 +189,12 @@ export default function VaultDetailPage() {
             </button>
 
             <p className="mt-2 text-sm leading-6 text-rose-950/70">
-              Generate one access code for this whole private garden. The
-              recipient will see all letters inside it.
+              This garden's access code was created when you made the garden.
+              Share the code you saved then; it cannot be retrieved from the server.
             </p>
 
-            <button
-              onClick={handleGenerateCode}
-              disabled={generatingCode}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-burgundy px-5 py-3 font-semibold text-white shadow-soft hover:opacity-90 disabled:opacity-60"
-            >
-              {generatingCode ? (
-                <>
-                  <Loader2 className="animate-spin" size={18} />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <KeyRound size={18} />
-                  Generate code
-                </>
-              )}
-            </button>
           </div>
         </div>
-
-        {generatedCode && (
-          <div className="mb-8">
-            <CodeGeneratedBox code={generatedCode} />
-          </div>
-        )}
 
         <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>

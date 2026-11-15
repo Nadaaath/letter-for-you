@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Letter4You - initial real backend Lambda and restricted HTTP API
+
+Parameters:
+  GardensTableName:
+    Type: String
+    Default: letter4you-dev-gardens
+  LettersTableName:
+    Type: String
+    Default: letter4you-dev-letters
+  RecipientCodesTableName:
+    Type: String
+    Default: letter4you-dev-recipient-codes
+
+Resources:
+  BackendLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-backend'
+      RetentionInDays: 3
+
+  BackendHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: dev
+      DefaultRouteSettings:
+        ThrottlingRateLimit: 2
+        ThrottlingBurstLimit: 5
+
+  BackendFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: BackendLogGroup
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-backend'
+      CodeUri: ../backend/
+      Handler: src/lambda.handler
+      Runtime: nodejs22.x
+      MemorySize: 256
+      Timeout: 10
+      Environment:
+        Variables:
+          NODE_ENV: production
+          GARDENS_TABLE_NAME: !Ref GardensTableName
+          LETTERS_TABLE_NAME: !Ref LettersTableName
+          RECIPIENT_CODES_TABLE_NAME: !Ref RecipientCodesTableName
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${GardensTableName}'
+      Events:
+        Health:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BackendHttpApi
+            Path: /health
+            Method: GET
+        HealthDatabase:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BackendHttpApi
+            Path: /health/db
+            Method: GET
+    Metadata:
+      BuildProperties:
+        UseNpmCi: true
+
+Outputs:
+  ApiHealthUrl:
+    Description: Public non-sensitive development health endpoint
+    Value: !Sub 'https://${BackendHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/dev/health'
+  ApiDatabaseHealthUrl:
+    Description: Public development database health endpoint; remove before production
+    Value: !Sub 'https://${BackendHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/dev/health/db'
+  BackendFunctionName:
+    Value: !Ref BackendFunction

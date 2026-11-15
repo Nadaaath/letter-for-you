@@ -1,97 +1,60 @@
-
 import { randomUUID } from "node:crypto";
+import { createLetterRecord, getLetterRecord, deleteLetterRecord } from "../repositories/letter.repository.js";
+import { listGardenLetters } from "../repositories/garden.repository.js";
+import { assertGardenOwnerDynamo } from "./dynamo-vault.service.js";
 
-import {
-  createLetterRecord,
-  getLetterRecord,
-} from "../repositories/letter.repository.js";
-
-import {
-  listGardenLetters,
-} from "../repositories/garden.repository.js";
-
-import {
-  assertGardenOwnerDynamo,
-} from "./dynamo-vault.service.js";
-
-function toLetterDTO(record) {
-  const { gardenId, letterId, ...data } = record;
-
-  return {
-    ...data,
-    id: letterId,
-    vaultId: gardenId,
-  };
+function toDTO({ gardenId, letterId, ...data }) {
+  return { ...data, id: letterId, vaultId: gardenId };
 }
-
-export async function createLetterDynamo(
-  gardenId,
-  managementToken,
-  data
-) {
-  await assertGardenOwnerDynamo(
-    gardenId,
-    managementToken
-  );
-
+function notFound() {
+  const error = new Error("Letter not found");
+  error.statusCode = 404;
+  return error;
+}
+export async function createLetterDynamo(gardenId, token, data) {
+  await assertGardenOwnerDynamo(gardenId, token);
   const letter = {
-    gardenId,
-    letterId: randomUUID(),
-    title: data.title ?? null,
-    recipientName: data.recipientName ?? null,
-    senderName: data.senderName ?? null,
-    isAnonymous: data.isAnonymous ?? false,
-    content: data.content,
-    styleConfig: data.styleConfig ?? null,
+    gardenId, letterId: data.requestId || randomUUID(),
+    title: data.title ?? null, recipientName: data.recipientName ?? null,
+    senderName: data.senderName ?? null, isAnonymous: data.isAnonymous ?? false,
+    content: data.content, styleConfig: data.styleConfig ?? null,
     expiresAt: data.expiresAt ?? null,
     createdAt: new Date().toISOString(),
   };
-
-  await createLetterRecord(letter);
-
-  return toLetterDTO(letter);
-}
-
-export async function listLettersDynamo(
-  gardenId,
-  managementToken
-) {
-  await assertGardenOwnerDynamo(
-    gardenId,
-    managementToken
-  );
-
-  const letters = await listGardenLetters(gardenId);
-
-  return letters
-    .map(toLetterDTO)
-    .sort((a, b) =>
-      String(b.createdAt ?? "").localeCompare(
-        String(a.createdAt ?? "")
-      )
-    );
-}
-
-export async function getLetterDynamo(
-  gardenId,
-  letterId,
-  managementToken
-) {
-  await assertGardenOwnerDynamo(
-    gardenId,
-    managementToken
-  );
-
-  const letter = await getLetterRecord(
-    gardenId,
-    letterId
-  );
-
-  if (!letter) {
-    const error = new Error("Letter not found");
-    error.statusCode = 404;
+  try {
+    await createLetterRecord(letter);
+  } catch (error) {
+    if (data.requestId && error.name === "TransactionCanceledException") {
+      const existing = await getLetterRecord(gardenId, letter.letterId);
+      if (existing && [
+        "title", "recipientName", "senderName", "isAnonymous",
+        "content", "styleConfig", "expiresAt",
+      ].every(k => JSON.stringify(existing[k] ?? null) === JSON.stringify(letter[k] ?? null))) {
+        return toDTO(existing);
+      }
+    }
     throw error;
   }
-
-  return toLetterDTO(letter);
+  return toDTO(letter);
+}
+export async function listLettersDynamo(gardenId, token) {
+  await assertGardenOwnerDynamo(gardenId, token);
+  return (await listGardenLetters(gardenId)).map(toDTO)
+    .sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")));
+}
+export async function getLetterDynamo(gardenId, letterId, token) {
+  await assertGardenOwnerDynamo(gardenId, token);
+  const letter = await getLetterRecord(gardenId, letterId);
+  if (!letter) throw notFound();
+  return toDTO(letter);
+}
+export async function deleteLetterDynamo(gardenId, letterId, token) {
+  await assertGardenOwnerDynamo(gardenId, token);
+  try {
+    await deleteLetterRecord(gardenId, letterId);
+  } catch (error) {
+    if (error.name === "ConditionalCheckFailedException") throw notFound();
+    throw error;
+  }
+  return { message: "Letter deleted" };
 }
