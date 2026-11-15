@@ -54,7 +54,7 @@ router.delete("/:vaultId", asyncRoute(async (req, res) => {
   res.json(await deleteVaultDynamo(req.params.vaultId, ownerKey(req)));
 }));
 router.post("/:vaultId/letters", validate(createLetterSchema), asyncRoute(async (req, res) => {
-  const requestId = req.get("x-request-id");
+  const requestId = req.get("idempotency-key");
   if (requestId && !/^[a-f0-9-]{36}$/i.test(requestId)) {
     return res.status(400).json({ message: "Invalid request ID" });
   }
