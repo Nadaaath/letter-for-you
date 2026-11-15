@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Letter4You - initial real backend Lambda and restricted HTTP API
+Description: Letter4You - DynamoDB application API on Lambda and API Gateway
 
 Parameters:
   GardensTableName:
@@ -44,12 +44,39 @@ Resources:
           GARDENS_TABLE_NAME: !Ref GardensTableName
           LETTERS_TABLE_NAME: !Ref LettersTableName
           RECIPIENT_CODES_TABLE_NAME: !Ref RecipientCodesTableName
+          RECIPIENT_CODE_HMAC_PARAMETER: /letter4you/dev/recipient-code-hmac
       Policies:
         - Version: '2012-10-17'
           Statement:
-            - Effect: Allow
-              Action: dynamodb:GetItem
+            - Sid: GardensAccess
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+                - dynamodb:ConditionCheckItem
               Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${GardensTableName}'
+            - Sid: LettersAccess
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+                - dynamodb:Query
+                - dynamodb:BatchWriteItem
+              Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${LettersTableName}'
+            - Sid: RecipientCodeAccess
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+              Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${RecipientCodesTableName}'
+            - Sid: ReadRecipientHmacParameter
+              Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/letter4you/dev/recipient-code-hmac'
       Events:
         Health:
           Type: HttpApi
@@ -63,6 +90,60 @@ Resources:
             ApiId: !Ref BackendHttpApi
             Path: /health/db
             Method: GET
+        GardenCreate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BackendHttpApi
+            Path: /api/vaults
+            Method: POST
+        RecipientUnlock:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BackendHttpApi
+            Path: /api/vaults/unlock
+            Method: POST
+        GardenGet:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BackendHttpApi
+            Path: /api/vaults/{vaultId}
+            Method: GET
+        GardenUpdate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BackendHttpApi
+            Path: /api/vaults/{vaultId}
+            Method: PUT
+        GardenDelete:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BackendHttpApi
+            Path: /api/vaults/{vaultId}
+            Method: DELETE
+        LetterCreate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BackendHttpApi
+            Path: /api/vaults/{vaultId}/letters
+            Method: POST
+        LetterList:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BackendHttpApi
+            Path: /api/vaults/{vaultId}/letters
+            Method: GET
+        LetterGet:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BackendHttpApi
+            Path: /api/vaults/{vaultId}/letters/{letterId}
+            Method: GET
+        LetterDelete:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref BackendHttpApi
+            Path: /api/vaults/{vaultId}/letters/{letterId}
+            Method: DELETE
     Metadata:
       BuildProperties:
         UseNpmCi: true
