@@ -1,3 +1,4 @@
+
 import {
   PutCommand,
   GetCommand,
@@ -7,10 +8,18 @@ import {
 
 import { db } from "../config/dynamodb.js";
 
-const GARDENS_TABLE = "Gardens";
-const LETTERS_TABLE = "Letters";
+// Local development defaults.
+// AWS Lambda will receive the real table names
+// through environment variables.
+const GARDENS_TABLE =
+  process.env.GARDENS_TABLE_NAME || "Gardens";
 
-// Store a new garden
+const LETTERS_TABLE =
+  process.env.LETTERS_TABLE_NAME || "Letters";
+
+const RECIPIENT_CODES_TABLE =
+  process.env.RECIPIENT_CODES_TABLE_NAME || "RecipientCodes";
+
 export async function createGardenRecord(garden) {
   await db.send(
     new PutCommand({
@@ -23,7 +32,6 @@ export async function createGardenRecord(garden) {
   return garden;
 }
 
-// Retrieve a garden by its ID
 export async function getGardenById(gardenId) {
   const result = await db.send(
     new GetCommand({
@@ -36,7 +44,6 @@ export async function getGardenById(gardenId) {
   return result.Item ?? null;
 }
 
-// Retrieve letters belonging to a garden
 export async function listGardenLetters(gardenId) {
   const letters = [];
   let lastKey;
@@ -61,25 +68,30 @@ export async function listGardenLetters(gardenId) {
   return letters;
 }
 
-export async function createGardenWithCodeRecord(garden, codeDigest) {
+export async function createGardenWithCodeRecord(
+  garden,
+  codeDigest
+) {
   await db.send(
     new TransactWriteCommand({
       TransactItems: [
         {
           Put: {
-            TableName: "Gardens",
+            TableName: GARDENS_TABLE,
             Item: garden,
-            ConditionExpression: "attribute_not_exists(gardenId)",
+            ConditionExpression:
+              "attribute_not_exists(gardenId)",
           },
         },
         {
           Put: {
-            TableName: "RecipientCodes",
+            TableName: RECIPIENT_CODES_TABLE,
             Item: {
               codeDigest,
               gardenId: garden.gardenId,
             },
-            ConditionExpression: "attribute_not_exists(codeDigest)",
+            ConditionExpression:
+              "attribute_not_exists(codeDigest)",
           },
         },
       ],
