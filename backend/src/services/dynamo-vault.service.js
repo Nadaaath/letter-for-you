@@ -1,9 +1,11 @@
+
 import {
   randomUUID,
   createHash,
   createHmac,
   timingSafeEqual,
 } from "node:crypto";
+
 import {
   generateAccessCode,
   generateManagementToken,
@@ -15,11 +17,14 @@ import {
   getGardenById,
   listGardenLetters,
 } from "../repositories/garden.repository.js";
+
 export async function createVaultDynamo(data) {
   const hmacKey = process.env.RECIPIENT_CODE_HMAC_KEY;
 
   if (!/^[a-f0-9]{64}$/i.test(hmacKey ?? "")) {
-    throw new Error("A 32-byte recipient-code HMAC key is required");
+    throw new Error(
+      "A 32-byte recipient-code HMAC key is required"
+    );
   }
 
   const gardenId = randomUUID();
@@ -49,7 +54,10 @@ export async function createVaultDynamo(data) {
     updatedAt: now,
   };
 
-  await createGardenWithCodeRecord(garden, codeDigest);
+  await createGardenWithCodeRecord(
+    garden,
+    codeDigest
+  );
 
   return {
     vault: {
@@ -66,16 +74,16 @@ export async function createVaultDynamo(data) {
     accessCode,
   };
 }
-export async function getManagedVaultDynamo(
+
+// Reusable authorization for every owner-only operation.
+export async function assertGardenOwnerDynamo(
   gardenId,
   managementToken
 ) {
-  // 1. Validate token format
   if (!/^[a-f0-9]{64}$/.test(managementToken ?? "")) {
     throw new Error("Access denied");
   }
 
-  // 2. Retrieve garden metadata
   const garden = await getGardenById(gardenId);
 
   if (
@@ -85,7 +93,6 @@ export async function getManagedVaultDynamo(
     throw new Error("Access denied");
   }
 
-  // 3. Hash the supplied token
   const receivedHash = createHash("sha256")
     .update(managementToken)
     .digest();
@@ -95,15 +102,36 @@ export async function getManagedVaultDynamo(
     "hex"
   );
 
-  // 4. Compare both hashes safely
   if (!timingSafeEqual(receivedHash, expectedHash)) {
     throw new Error("Access denied");
   }
 
-  // 5. Retrieve the garden's letters
+  return garden;
+}
+
+export async function getManagedVaultDynamo(
+  gardenId,
+  managementToken
+) {
+  const garden = await assertGardenOwnerDynamo(
+    gardenId,
+    managementToken
+  );
+
   const letters = await listGardenLetters(gardenId);
 
-  // 6. Return only the information the frontend needs
+  const formattedLetters = letters
+    .map(({ gardenId, letterId, ...rest }) => ({
+      ...rest,
+      id: letterId,
+      vaultId: gardenId,
+    }))
+    .sort((a, b) =>
+      String(b.createdAt ?? "").localeCompare(
+        String(a.createdAt ?? "")
+      )
+    );
+
   return {
     id: garden.gardenId,
     name: garden.name,
@@ -111,13 +139,9 @@ export async function getManagedVaultDynamo(
     createdAt: garden.createdAt,
     updatedAt: garden.updatedAt,
     hasAccessCode: garden.hasAccessCode,
-    letters: letters.map(({ gardenId, letterId, ...rest }) => ({
-      ...rest,
-      id: letterId,
-      vaultId: gardenId,
-    })),
+    letters: formattedLetters,
     _count: {
-      letters: letters.length,
+      letters: formattedLetters.length,
     },
   };
 }
