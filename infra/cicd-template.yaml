@@ -1,0 +1,311 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Letter4You development frontend CI/CD - GitHub CodeConnections, CodeBuild and gated S3/CloudFront deployment
+
+Parameters:
+  ConnectionArn:
+    Type: String
+    Description: ARN of the existing AVAILABLE GitHub CodeConnections connection in eu-north-1
+    AllowedPattern: '^arn:aws(-[a-z]+)?:((codeconnections)|(codestar-connections)):[a-z0-9-]+:[0-9]{12}:connection/[a-zA-Z0-9-]+$'
+  Repository:
+    Type: String
+    Default: Nadaaath/letter-for-you
+  Branch:
+    Type: String
+    Default: feature/aws-serverless-dynamodb
+  WebsiteBucketName:
+    Type: String
+    Description: WebsiteBucketName output of letter4you-dev-web
+  CloudFrontDistributionId:
+    Type: String
+    Description: CloudFrontDistributionId output of letter4you-dev-web
+
+Resources:
+  PipelineArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldPipelineArtifacts
+            Status: Enabled
+            ExpirationInDays: 14
+
+  BuildLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/codebuild/${AWS::StackName}-build'
+      RetentionInDays: 7
+
+  DeployLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/codebuild/${AWS::StackName}-deploy'
+      RetentionInDays: 7
+
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: Letter4YouPipelineAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadAndWritePipelineArtifacts
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:GetBucketVersioning
+                  - s3:ListBucket
+                Resource: !GetAtt PipelineArtifactBucket.Arn
+              - Sid: ReadAndWritePipelineObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource: !Sub '${PipelineArtifactBucket.Arn}/*'
+              - Sid: ReadGitHubSource
+                Effect: Allow
+                Action:
+                  - codeconnections:UseConnection
+                  - codestar-connections:UseConnection
+                Resource: !Ref ConnectionArn
+              - Sid: RunBuildProjects
+                Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                Resource:
+                  - !GetAtt FrontendBuildProject.Arn
+                  - !GetAtt FrontendDeployProject.Arn
+
+  BuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: Letter4YouBuildAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: BuildLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt BuildLogGroup.Arn
+              - Sid: BuildArtifactBucket
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:GetBucketAcl
+                  - s3:ListBucket
+                Resource: !GetAtt PipelineArtifactBucket.Arn
+              - Sid: BuildArtifactObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource: !Sub '${PipelineArtifactBucket.Arn}/*'
+
+  DeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: Letter4YouDeployAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: DeployLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt DeployLogGroup.Arn
+              - Sid: ReadSourceArtifactBucket
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:GetBucketAcl
+                  - s3:ListBucket
+                Resource: !GetAtt PipelineArtifactBucket.Arn
+              - Sid: ReadSourceArtifactObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                Resource: !Sub '${PipelineArtifactBucket.Arn}/*'
+              - Sid: ListWebsiteObjects
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource: !Sub 'arn:${AWS::Partition}:s3:::${WebsiteBucketName}'
+              - Sid: UpdateWebsiteObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub 'arn:${AWS::Partition}:s3:::${WebsiteBucketName}/*'
+              - Sid: InvalidateOnlyLetter4YouDistribution
+                Effect: Allow
+                Action: cloudfront:CreateInvalidation
+                Resource: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistributionId}'
+
+  FrontendBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub '${AWS::StackName}-build'
+      ServiceRole: !GetAtt BuildRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+        PrivilegedMode: false
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec.yml
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: !Ref BuildLogGroup
+
+  FrontendDeployProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub '${AWS::StackName}-deploy'
+      ServiceRole: !GetAtt DeployRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+        PrivilegedMode: false
+        EnvironmentVariables:
+          - Name: WEBSITE_BUCKET_NAME
+            Value: !Ref WebsiteBucketName
+          - Name: DISTRIBUTION_ID
+            Value: !Ref CloudFrontDistributionId
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            build:
+              commands:
+                - test -s index.html
+                - aws s3 sync . "s3://$WEBSITE_BUCKET_NAME/" --delete --cache-control "public,max-age=300"
+                - aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: !Ref DeployLogGroup
+
+  FrontendPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub '${AWS::StackName}-pipeline'
+      PipelineType: V1
+      RoleArn: !GetAtt PipelineRole.Arn
+      RestartExecutionOnUpdate: false
+      ArtifactStore:
+        Type: S3
+        Location: !Ref PipelineArtifactBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: GitHub
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+              Configuration:
+                ConnectionArn: !Ref ConnectionArn
+                FullRepositoryId: !Ref Repository
+                BranchName: !Ref Branch
+                OutputArtifactFormat: CODE_ZIP
+                DetectChanges: 'false'
+              OutputArtifacts:
+                - Name: SourceArtifact
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: BuildReact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref FrontendBuildProject
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: WebsiteArtifact
+              RunOrder: 1
+        - Name: Approve
+          Actions:
+            - Name: ApproveWebsiteDeployment
+              ActionTypeId:
+                Category: Approval
+                Owner: AWS
+                Provider: Manual
+                Version: '1'
+              RunOrder: 1
+        - Name: Deploy
+          Actions:
+            - Name: PublishWebsite
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref FrontendDeployProject
+              InputArtifacts:
+                - Name: WebsiteArtifact
+              RunOrder: 1
+
+Outputs:
+  PipelineName:
+    Value: !Ref FrontendPipeline
+  PipelineUrl:
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/codesuite/codepipeline/pipelines/${FrontendPipeline}/view?region=${AWS::Region}'
+  BuildProjectName:
+    Value: !Ref FrontendBuildProject
+  DeployProjectName:
+    Value: !Ref FrontendDeployProject

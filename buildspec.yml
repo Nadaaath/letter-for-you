@@ -1,0 +1,24 @@
+# Letter4You CI: produce a deployable React artifact; backend remains deployed via SAM for now.
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+    commands:
+      - node --version
+      - npm --version
+      - npm ci --prefix frontend
+      - npm ci --prefix backend
+  pre_build:
+    commands:
+      - node --check backend/src/lambda.js
+      - node --check backend/src/routes/vault.routes.js
+      - node --check backend/src/config/recipient-code-secret.js
+  build:
+    commands:
+      - VITE_API_URL=/api npm run build --prefix frontend
+      - test -s frontend/dist/index.html
+artifacts:
+  base-directory: frontend/dist
+  files:
+    - '**/*'
