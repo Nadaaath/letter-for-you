@@ -65,8 +65,8 @@ export default function LandingPage() {
           </h2>
 
           <p className="mx-auto mt-4 max-w-2xl text-rose-950/70">
-            Create a private garden for one person, add as many sealed letters
-            as you want, then share one access code.
+            Create a private garden for one person, add as many letters
+            as you want, then share one access code with Your person.
           </p>
         </div>
 
@@ -120,7 +120,7 @@ export default function LandingPage() {
       <section className="mx-auto max-w-5xl px-5 py-20 text-center">
         <div className="glass-card rounded-[2.5rem] p-10 shadow-soft">
           <h2 className="font-serif text-5xl font-bold text-burgundy">
-            Ready to write something unforgettable?
+            Ready to write?
           </h2>
 
           <p className="mx-auto mt-4 max-w-2xl text-rose-950/70">
