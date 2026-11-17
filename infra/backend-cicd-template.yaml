@@ -264,7 +264,7 @@ Resources:
                 FullRepositoryId: !Ref Repository
                 BranchName: !Ref Branch
                 OutputArtifactFormat: CODE_ZIP
-                DetectChanges: 'false'
+                DetectChanges: 'true'
               OutputArtifacts:
                 - Name: SourceArtifact
               RunOrder: 1
