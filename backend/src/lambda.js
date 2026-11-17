@@ -37,3 +37,4 @@ export const handler = async (event, context) => {
   }
   return expressHandler(event, context);
 };
+// CI/CD deployment verification
