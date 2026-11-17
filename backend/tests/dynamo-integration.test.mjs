@@ -21,7 +21,7 @@ test("DynamoDB API lifecycle", async t => {
       headers: {
         ...(body ? { "content-type": "application/json" } : {}),
         ...(key ? { "x-garden-key": key } : {}),
-        ...(requestId ? { "x-request-id": requestId } : {}),
+        ...(requestId ? { "idempotency-key": requestId } : {}),
       },
       body: body ? JSON.stringify(body) : undefined,
     });

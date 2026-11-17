@@ -33,7 +33,7 @@ export async function addLetterToVault(vaultId, data) {
   delete letterData.requestId;
   const config = managementConfig(vaultId);
   const response = await api.post(`/vaults/${vaultId}/letters`, letterData, {
-    ...config, headers: { ...config.headers, "x-request-id": requestId },
+    ...config, headers: { ...config.headers, "idempotency-key": requestId },
   });
   return response.data.letter;
 }
