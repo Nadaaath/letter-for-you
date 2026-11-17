@@ -209,6 +209,12 @@ Resources:
                 Effect: Allow
                 Action: [s3:GetObject, s3:GetObjectVersion]
                 Resource: !Sub '${ArtifactBucket.Arn}/lambda/*'
+              
+              - Sid: AllowSAMTransform
+                Effect: Allow
+                Action: cloudformation:CreateChangeSet
+                Resource: !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31'
+
 
   BackendBuildProject:
     Type: AWS::CodeBuild::Project
