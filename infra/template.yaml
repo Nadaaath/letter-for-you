@@ -34,8 +34,8 @@ Resources:
 
   LettersTable:
     Type: AWS::DynamoDB::Table
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: !Sub "letter4you-${Stage}-letters"
       BillingMode: PAY_PER_REQUEST
