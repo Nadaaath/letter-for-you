@@ -7,8 +7,7 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "test": "node --test tests/dynamo-integration.test.mjs",
-    "db:local:init": "node scripts/bootstrap-dynamodb-local.mjs"
+    "test": "node --test tests/validators.unit.test.mjs"
   },
   "keywords": [],
   "author": "Nada Tahiri",

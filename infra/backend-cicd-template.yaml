@@ -326,6 +326,22 @@ Resources:
                 StackName: !Ref BackendStackName
               RunOrder: 1
 
+        - Name: Verify
+          Actions:
+            - Name: SmokeTestDeployedAPI
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref BackendBuildProject
+                BuildspecOverride: backend-smoke-buildspec.yml
+                EnvironmentVariables: !Sub '[{"name":"API_BASE_URL","value":"https://${ExistingApiId}.execute-api.${AWS::Region}.${AWS::URLSuffix}/dev","type":"PLAINTEXT"}]'
+              InputArtifacts:
+                - Name: SourceArtifact
+              RunOrder: 1
+
 Outputs:
   PipelineName:
     Value: !Ref BackendPipeline

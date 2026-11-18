@@ -1,0 +1,8 @@
+# Post-deployment check against the existing AWS HTTP API.
+# The CodePipeline action injects API_BASE_URL; no AWS test databases are created.
+version: 0.2
+phases:
+  build:
+    commands:
+      - node --version
+      - node backend/scripts/smoke-cloud-api.mjs

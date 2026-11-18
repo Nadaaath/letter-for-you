@@ -12,6 +12,7 @@ phases:
       - node --check backend/src/app.js
       - node --check backend/src/routes/vault.routes.js
       - node --check backend/src/config/recipient-code-secret.js
+      - npm test --prefix backend
       - sam validate --template-file infra/api-template.yaml
   build:
     commands:
