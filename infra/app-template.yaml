@@ -1,0 +1,71 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: Letter4You - Private Lambda IAM smoke test
+
+Parameters:
+  GardensTableName:
+    Type: String
+    Default: letter4you-dev-gardens
+
+Resources:
+
+  SmokeLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-smoke'
+      RetentionInDays: 3
+
+  SmokeExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+
+      Policies:
+        - PolicyName: gardens-read-only
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${GardensTableName}'
+
+        - PolicyName: smoke-log-writer
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-smoke:log-stream:*'
+
+  SmokeFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: SmokeLogGroup
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-smoke'
+      CodeUri: smoke/
+      Handler: handler.handler
+      Runtime: nodejs22.x
+      MemorySize: 128
+      Timeout: 10
+      Role: !GetAtt SmokeExecutionRole.Arn
+      Environment:
+        Variables:
+          GARDENS_TABLE_NAME: !Ref GardensTableName
+
+Outputs:
+  SmokeFunctionName:
+    Value: !Ref SmokeFunction
+
+  SmokeRoleArn:
+    Value: !GetAtt SmokeExecutionRole.Arn

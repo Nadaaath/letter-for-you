@@ -2,13 +2,12 @@ import { Link } from "react-router-dom";
 import {
   Calendar,
   Flower2,
-  KeyRound,
   LockKeyhole,
   Trash2,
 } from "lucide-react";
 import { formatDate } from "../../../lib/formatDate";
 
-export default function VaultCard({ vault, onDelete, onGenerateCode }) {
+export default function VaultCard({ vault, onDelete }) {
   const lettersCount = vault._count?.letters ?? 0;
 
   return (
@@ -76,14 +75,6 @@ export default function VaultCard({ vault, onDelete, onGenerateCode }) {
             Open garden
           </Link>
 
-          <button
-            type="button"
-            onClick={() => onGenerateCode(vault.id)}
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-rose-200 bg-white/80 px-5 py-3 text-sm font-semibold text-burgundy hover:bg-rose-50"
-          >
-            <KeyRound size={16} />
-            Generate code
-          </button>
         </div>
       </div>
     </article>

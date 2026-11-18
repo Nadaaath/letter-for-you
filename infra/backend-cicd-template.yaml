@@ -1,0 +1,353 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Letter4You backend pipeline - SAM package, review change set, approval, CloudFormation execute
+
+Parameters:
+  ConnectionArn:
+    Type: String
+    Description: Existing AVAILABLE GitHub connection ARN in this AWS region
+    AllowedPattern: '^arn:aws(-[a-z]+)?:((codeconnections)|(codestar-connections)):[a-z0-9-]+:[0-9]{12}:connection/[a-zA-Z0-9-]+$'
+  Repository:
+    Type: String
+    Default: Nadaaath/letter-for-you
+  Branch:
+    Type: String
+    Default: feature/aws-serverless-dynamodb
+  BackendStackName:
+    Type: String
+    Default: letter4you-dev-api
+    Description: Existing SAM stack name, not a new backend stack
+  ExistingApiId:
+    Type: String
+    Description: Physical ID of BackendHttpApi from letter4you-dev-api
+    AllowedPattern: '^[a-z0-9]{10}$'
+
+Resources:
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireBuildArtifacts
+            Status: Enabled
+            ExpirationInDays: 90
+
+  BuildLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/codebuild/${AWS::StackName}-sam-build'
+      RetentionInDays: 7
+
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: codepipeline.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: Letter4YouBackendPipeline
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: PipelineBucket
+                Effect: Allow
+                Action: [s3:GetBucketLocation, s3:GetBucketVersioning, s3:GetBucketAcl, s3:ListBucket]
+                Resource: !GetAtt ArtifactBucket.Arn
+              - Sid: PipelineArtifacts
+                Effect: Allow
+                Action: [s3:GetObject, s3:GetObjectVersion, s3:PutObject]
+                Resource: !Sub '${ArtifactBucket.Arn}/*'
+              - Sid: UseExistingGitHubConnection
+                Effect: Allow
+                Action: [codeconnections:UseConnection, codestar-connections:UseConnection]
+                Resource: !Ref ConnectionArn
+              - Sid: RunSAMBuild
+                Effect: Allow
+                Action: [codebuild:StartBuild, codebuild:BatchGetBuilds]
+                Resource: !GetAtt BackendBuildProject.Arn
+              - Sid: ManageOnlyTargetBackendStack
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:GetTemplate
+                  - cloudformation:DescribeStackResources
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${BackendStackName}/*'
+                  - !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:changeSet/letter4you-backend-cicd/*'
+              - Sid: ValidateCFNTemplate
+                Effect: Allow
+                Action: [cloudformation:ValidateTemplate]
+                Resource: '*'
+              - Sid: PassOnlyBackendCFNExecutionRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt BackendCFNExecutionRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: cloudformation.amazonaws.com
+
+  BuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: codebuild.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: Letter4YouBackendBuild
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: BuildLogs
+                Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt BuildLogGroup.Arn
+              - Sid: PipelineBuildBucket
+                Effect: Allow
+                Action: [s3:GetBucketLocation, s3:GetBucketAcl, s3:ListBucket]
+                Resource: !GetAtt ArtifactBucket.Arn
+              - Sid: BuildAndSAMPackageObjects
+                Effect: Allow
+                Action: [s3:GetObject, s3:GetObjectVersion, s3:PutObject]
+                Resource: !Sub '${ArtifactBucket.Arn}/*'
+
+  BackendCFNExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Restricted service role for updating the existing Letter4You API stack
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: cloudformation.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: Letter4YouBackendStackUpdates
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: UpdateExistingLambda
+                Effect: Allow
+                Action:
+                  - lambda:GetFunction
+                  - lambda:GetFunctionConfiguration
+                  - lambda:UpdateFunctionCode
+                  - lambda:UpdateFunctionConfiguration
+                  - lambda:CreateFunction
+                  - lambda:DeleteFunction
+                  - lambda:AddPermission
+                  - lambda:RemovePermission
+                  - lambda:GetPolicy
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                  - lambda:ListTags
+                Resource: !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${BackendStackName}-backend'
+              - Sid: UpdateExistingApiGateway
+                Effect: Allow
+                Action: [apigateway:GET, apigateway:POST, apigateway:PATCH, apigateway:PUT, apigateway:DELETE]
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}::/apis/${ExistingApiId}'
+                  - !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}::/apis/${ExistingApiId}/*'
+              - Sid: ManageAppLambdaRole
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:GetRole
+                  - iam:PutRolePolicy
+                  - iam:GetRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:UpdateAssumeRolePolicy
+                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${BackendStackName}-BackendFunctionRole-*'
+              - Sid: PassOnlyAppRoleToLambda
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${BackendStackName}-BackendFunctionRole-*'
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: lambda.amazonaws.com
+              - Sid: ManageAppLogGroup
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:DeleteLogGroup
+                  - logs:PutRetentionPolicy
+                  - logs:DeleteRetentionPolicy
+                  - logs:TagResource
+                  - logs:UntagResource
+                  - logs:ListTagsForResource
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${BackendStackName}-backend*'
+              - Sid: ReadLogMetadata
+                Effect: Allow
+                Action: logs:DescribeLogGroups
+                Resource: '*'
+              - Sid: ReadPackagedLambdaArtifacts
+                Effect: Allow
+                Action: [s3:GetObject, s3:GetObjectVersion]
+                Resource: !Sub '${ArtifactBucket.Arn}/lambda/*'
+              
+              - Sid: AllowSAMTransform
+                Effect: Allow
+                Action: cloudformation:CreateChangeSet
+                Resource: !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31'
+
+
+  BackendBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub '${AWS::StackName}-sam-build'
+      ServiceRole: !GetAtt BuildRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: backend-buildspec.yml
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: public.ecr.aws/sam/build-nodejs22.x
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: false
+        EnvironmentVariables:
+          - Name: SAM_ARTIFACT_BUCKET
+            Value: !Ref ArtifactBucket
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: !Ref BuildLogGroup
+
+  BackendPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub '${AWS::StackName}-pipeline'
+      PipelineType: V1
+      RoleArn: !GetAtt PipelineRole.Arn
+      RestartExecutionOnUpdate: false
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: GitHubSource
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+              Configuration:
+                ConnectionArn: !Ref ConnectionArn
+                FullRepositoryId: !Ref Repository
+                BranchName: !Ref Branch
+                OutputArtifactFormat: CODE_ZIP
+                DetectChanges: 'true'
+              OutputArtifacts:
+                - Name: SourceArtifact
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: PackageBackendSAM
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref BackendBuildProject
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: PackagedBackend
+              RunOrder: 1
+        - Name: PrepareChangeSet
+          Actions:
+            - Name: ReviewBackendChanges
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: '1'
+              Configuration:
+                ActionMode: CHANGE_SET_REPLACE
+                Capabilities: CAPABILITY_IAM
+                ChangeSetName: letter4you-backend-cicd
+                StackName: !Ref BackendStackName
+                RoleArn: !GetAtt BackendCFNExecutionRole.Arn
+                TemplatePath: PackagedBackend::packaged.yaml
+              InputArtifacts:
+                - Name: PackagedBackend
+              RunOrder: 1
+        - Name: Approve
+          Actions:
+            - Name: ApproveBackendChanges
+              ActionTypeId:
+                Category: Approval
+                Owner: AWS
+                Provider: Manual
+                Version: '1'
+              Configuration:
+                CustomData: Review the letter4you-dev-api change set in CloudFormation before approving
+              RunOrder: 1
+        - Name: Deploy
+          Actions:
+            - Name: ExecuteApprovedChangeSet
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: '1'
+              Configuration:
+                ActionMode: CHANGE_SET_EXECUTE
+                ChangeSetName: letter4you-backend-cicd
+                StackName: !Ref BackendStackName
+              RunOrder: 1
+
+        - Name: Verify
+          Actions:
+            - Name: SmokeTestDeployedAPI
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref BackendBuildProject
+                BuildspecOverride: backend-smoke-buildspec.yml
+                EnvironmentVariables: !Sub '[{"name":"API_BASE_URL","value":"https://${ExistingApiId}.execute-api.${AWS::Region}.${AWS::URLSuffix}/dev","type":"PLAINTEXT"}]'
+              InputArtifacts:
+                - Name: SourceArtifact
+              RunOrder: 1
+
+Outputs:
+  PipelineName:
+    Value: !Ref BackendPipeline
+  PipelineURL:
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/codesuite/codepipeline/pipelines/${BackendPipeline}/view?region=${AWS::Region}'
+  PackageBucketName:
+    Value: !Ref ArtifactBucket
+  CFNExecutionRoleArn:
+    Value: !GetAtt BackendCFNExecutionRole.Arn

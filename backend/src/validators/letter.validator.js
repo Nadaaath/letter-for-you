@@ -57,7 +57,6 @@ export const createLetterSchema = z.object({
 
   styleConfig: styleConfigSchema,
 
-  isOpenOnce: z.boolean().optional(),
   expiresAt: z.string().datetime().optional().nullable(),
 });
 

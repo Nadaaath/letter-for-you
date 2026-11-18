@@ -33,7 +33,7 @@ export default function LandingPage() {
 
           <div className="mt-8 flex flex-wrap gap-4">
             <Link
-              to="/register"
+              to="/dashboard"
               className="inline-flex items-center gap-2 rounded-full bg-burgundy px-7 py-4 font-semibold text-white shadow-soft hover:opacity-90"
             >
               <PenLine size={18} />
@@ -65,8 +65,8 @@ export default function LandingPage() {
           </h2>
 
           <p className="mx-auto mt-4 max-w-2xl text-rose-950/70">
-            Create a private garden for one person, add as many sealed letters
-            as you want, then share one access code.
+            Create a private garden for one person, add as many letters
+            as you want, then share one access code with Your person.
           </p>
         </div>
 
@@ -99,7 +99,7 @@ export default function LandingPage() {
           <FeatureCard
             icon={<LockKeyhole size={24} />}
             title="Private by design"
-            text="Writers manage only their own gardens. Receivers do not need an account; they only need the secret code."
+            text="Neither writer nor reader needs an account. Writers save a private management link, while readers only need the secret code."
           />
 
           <FeatureCard
@@ -114,18 +114,13 @@ export default function LandingPage() {
             text="Once a letter is sealed, it cannot be edited. It feels more meaningful, like a real message."
           />
 
-          <FeatureCard
-            icon={<KeyRound size={24} />}
-            title="Open-once option"
-            text="Some letters can be opened only once, making them feel even more intimate and special."
-          />
         </div>
       </section>
 
       <section className="mx-auto max-w-5xl px-5 py-20 text-center">
         <div className="glass-card rounded-[2.5rem] p-10 shadow-soft">
           <h2 className="font-serif text-5xl font-bold text-burgundy">
-            Ready to write something unforgettable?
+            Ready to write?
           </h2>
 
           <p className="mx-auto mt-4 max-w-2xl text-rose-950/70">
@@ -135,7 +130,7 @@ export default function LandingPage() {
 
           <div className="mt-8 flex flex-wrap justify-center gap-4">
             <Link
-              to="/register"
+              to="/dashboard"
               className="inline-flex items-center gap-2 rounded-full bg-burgundy px-7 py-4 font-semibold text-white shadow-soft hover:opacity-90"
             >
               Create your garden
@@ -166,7 +161,7 @@ function HeroPreview() {
             Private Garden
           </span>
 
-          <span className="text-2xl">🌸</span>
+          <span className="text-2xl">ðŸŒ¸</span>
         </div>
 
         <div className="rounded-[2rem] bg-rose-50/70 p-5">
@@ -204,7 +199,7 @@ function MiniLetter({ title }) {
   return (
     <div className="flex items-center justify-between rounded-2xl bg-white/80 px-4 py-3 text-sm font-semibold text-burgundy shadow-sm">
       <span>{title}</span>
-      <span>✦</span>
+      <span>âœ¦</span>
     </div>
   );
 }

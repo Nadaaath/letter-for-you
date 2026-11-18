@@ -1,0 +1,24 @@
+# CI-only build: does not update Lambda or CloudFormation.
+version: 0.2
+phases:
+  install:
+    commands:
+      - node --version
+      - sam --version
+      - npm ci --prefix backend
+  pre_build:
+    commands:
+      - node --check backend/src/lambda.js
+      - node --check backend/src/app.js
+      - node --check backend/src/routes/vault.routes.js
+      - node --check backend/src/config/recipient-code-secret.js
+      - npm test --prefix backend
+      - sam validate --template-file infra/api-template.yaml
+  build:
+    commands:
+      - sam build --template-file infra/api-template.yaml
+      - sam package --template-file .aws-sam/build/template.yaml --s3-bucket "$SAM_ARTIFACT_BUCKET" --s3-prefix lambda --output-template-file packaged.yaml
+      - test -s packaged.yaml
+artifacts:
+  files:
+    - packaged.yaml

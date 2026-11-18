@@ -1,34 +1,12 @@
-import crypto from "crypto";
-import bcrypt from "bcrypt";
-
-const CODE_PREFIXES = [
-  "ROSE",
-  "LOVE",
-  "NOTE",
-  "DEAR",
-  "STAR",
-  "MOON",
-  "LILY",
-  "HUGS",
-];
-
-const SALT_ROUNDS = 12;
-
+import { randomBytes, randomInt } from "node:crypto";
+const PREFIXES = ["ROSE", "LOVE", "NOTE", "DEAR", "STAR", "MOON", "LILY", "HUGS"];
 export function generateAccessCode() {
-  const prefix = CODE_PREFIXES[Math.floor(Math.random() * CODE_PREFIXES.length)];
-  const randomPart = crypto.randomBytes(3).toString("hex").toUpperCase();
-
-  return `${prefix}-${randomPart}`;
+  return PREFIXES[randomInt(PREFIXES.length)] + "-" +
+    randomBytes(12).toString("hex").toUpperCase();
 }
-
-export async function hashAccessCode(code) {
-  return bcrypt.hash(normalizeCode(code), SALT_ROUNDS);
+export function generateManagementToken() {
+  return randomBytes(32).toString("hex");
 }
-
-export async function compareAccessCode(code, hash) {
-  return bcrypt.compare(normalizeCode(code), hash);
-}
-
 export function normalizeCode(code) {
-  return code.trim().toUpperCase();
+  return String(code).trim().toUpperCase();
 }
