@@ -6,7 +6,9 @@ Letter4You lets people create a **private garden**, write personalized letters i
 
 The objective was not simply to put a web app on AWS. It was to **change the way the application is deployed and operated**: migrate the database, preserve the product's behavior, automate infrastructure and releases, enforce permissions, test the real deployed API, and make the application observable without maintaining servers.
 
-**Project status:** the AWS application and backend delivery pipeline have been deployed and exercised successfully. The branch-to-`main` release process and some operational checks are documented below rather than represented as already complete.
+**Project status:** the serverless migration has been merged into `main`. The application and backend delivery pipeline have been deployed and exercised; live CodePipeline source-branch configuration and remaining operational controls must still be verified in AWS.
+
+**Technical documentation:** [Overview](docs/README.md) Â· [Architecture](docs/architecture.md) Â· [Data model & API](docs/data-and-api.md) Â· [CI/CD](docs/cicd.md) Â· [Infrastructure](docs/infrastructure.md) Â· [Security & monitoring](docs/security-and-observability.md) Â· [Operations](docs/operations.md)
 
 ## Contents
 
