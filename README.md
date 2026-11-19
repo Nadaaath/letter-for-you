@@ -44,6 +44,8 @@ Letter4You has two distinct user experiences, without requiring conventional use
 3. Does not receive the writer's management capabilities; an anonymous letter's sender name is hidden from the recipient view.
 
 This separation matters throughout the backend design: a recipient code grants **read access**, whereas the cryptographically generated management token authorizes **write and delete operations**. The application deliberately does not recreate the login/register system used in its earlier implementation.
+<img width="1882" height="1057" alt="image" src="https://github.com/user-attachments/assets/e211c1a2-2970-4811-8be8-ad38408233b6" />
+<img width="1601" height="958" alt="image" src="https://github.com/user-attachments/assets/b4bfba8a-90a0-4504-8468-d34f9e7eac51" />
 
 ## 2. Starting point and migration objectives
 
@@ -131,6 +133,7 @@ The first serverless resources were the DynamoDB tables in [`infra/template.yaml
 We used **on-demand capacity** rather than provisioning a fixed read/write throughput. The schema deliberately follows the operations the application performs, not a direct table-for-table SQL translation.
 
 An early, separate IAM/Lambda smoke test was used to prove that an AWS function could read the gardens table. The experimental infrastructure is preserved in [`infra/app-template.yaml`](infra/app-template.yaml) and `infra/smoke/`; it is **not the main application Lambda**. It should only be removed from AWS after checking the real stack inventory.
+<img width="1882" height="391" alt="image" src="https://github.com/user-attachments/assets/37a01de6-0cfa-4956-8324-86c5f173cd74" />
 
 ### Phase 3 — Replace Prisma/PostgreSQL access with DynamoDB operations
 
@@ -209,6 +212,7 @@ Through the AWS Console we configured and examined:
 The SAM template already limits HTTP API request rate to **2 requests/second, burst 5**, sets a **10-second Lambda timeout**, and keeps Lambda logs for **3 days**. The DynamoDB templates define `DeletionPolicy: Retain` and `UpdateReplacePolicy: Retain`; source definitions should be checked against the **deployed database stack** before relying on them.
 
 We discussed setting Lambda reserved concurrency, but it is not present in the current SAM template, so this README does **not** claim that a concurrency cap is deployed.
+<img width="1913" height="746" alt="image" src="https://github.com/user-attachments/assets/941e2b1d-b621-4b01-9d52-a0c6c03eeb41" />
 
 ## 5. DynamoDB data model and application logic
 
@@ -231,6 +235,7 @@ flowchart LR
 **Atomicity and retries:** DynamoDB transactions couple garden creation with recipient-code creation, and check garden state before inserting letters. The client sends an `idempotency-key` for letter creation; the server uses it as the letter ID and can return the existing letter for an identical retry.
 
 **Deletion:** a garden transitions to `DELETING` before letter/code cleanup, so fresh letter writes are blocked. Cleanup is synchronous in the current 10-second Lambda and is intended for modestly sized gardens; very large gardens would require a different strategy. Letter expiry is applied when returning letters to readers; it is not equivalent to a configured DynamoDB TTL job that physically deletes expired records.
+<img width="1858" height="567" alt="image" src="https://github.com/user-attachments/assets/40e478e3-af2e-488b-816f-220a6d7e8ddf" />
 
 ## 6. CI/CD pipelines
 
@@ -248,6 +253,7 @@ flowchart LR
     Approve -->|Approved| Deploy["5. Deploy: Execute change set"]
     Deploy --> Verify["6. Verify: Live API smoke tests"]
 ```
+<img width="1881" height="906" alt="image" src="https://github.com/user-attachments/assets/04fd9763-a7b4-4109-866e-f6118e0f7c70" />
 
 | Stage | What actually happens |
 |---|---|
@@ -316,6 +322,7 @@ For a manual development-only smoke run, obtain the API URL from CloudFormation 
 | Repeat the same `idempotency-key` | Same letter ID; no duplicate |
 | Unlock with generated recipient code | One letter visible |
 | Delete synthetic garden | HTTP 200; cleanup failure makes test fail |
+<img width="868" height="240" alt="image" src="https://github.com/user-attachments/assets/166ab330-621b-427c-8d41-cfb4406adcea" />
 
 **What these tests do not prove:** automated browser journeys, multi-region recovery, high-volume performance, complete IAM/security assurance or a working production backup/restore procedure.
 
@@ -448,20 +455,9 @@ aws cloudformation describe-stacks \
 - **Two AWS-native pipelines:** frontend and backend artifacts have different lifecycles; manual approval keeps deployment intentional.
 - **No additional staging stack / Kubernetes / Jenkins / GitHub Actions:** adding complexity was not the goal. The tested deployment is a **development environment**, with limitations documented rather than hidden.
 
-### Current release checklist
 
-The branch where the serverless migration was developed is `feature/aws-serverless-dynamodb`. Before declaring the final `main`-branch release complete:
 
-- [ ] Review and merge the migration pull request into `main`.
-- [ ] Update the backend pipeline's **Branch** CloudFormation parameter to `main` and review the change set.
-- [ ] Update the frontend Console pipeline's source branch / triggers to `main`.
-- [ ] Verify fresh source executions from `main` and confirm the website and live API still work.
-- [ ] Check deployed DynamoDB resource policies, retention and whether backups are required.
-- [ ] Review the experimental smoke Lambda/stack; remove it only after checking no active dependencies.
-- [ ] Confirm frontend CloudFront invalidation behavior and reconcile Console-only operational settings with IaC if long-term reproducibility is required.
-- [ ] Add authentic screenshots of the app, backend pipeline and dashboard to this README if desired for a portfolio presentation.
 
-See [`docs/FINALIZATION.md`](docs/FINALIZATION.md) for the operational closeout checklist. **Avoid deleting the main database, API, website or CI/CD service roles while finalizing.**
 
 ---
 
